@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../theme/colors.dart';
 
+// 1. IMPORTAMOS LOS DASHBOARDS (Asegúrate que los archivos estén en la carpeta correcta)
+import 'particular_dashboard.dart';
+import 'professional_dashboard.dart'; // <--- IMPORTANTE: Agregado este import
+
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
 
@@ -112,7 +116,6 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildIdentityCard(bool isProfesional, bool isParticular) {
-    // Definimos la etiqueta según el tipo
     String badgeText = 'USUARIO';
     Color badgeColor = Colors.grey;
 
@@ -239,7 +242,6 @@ class _ProfilePageState extends State<ProfilePage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Mostramos el dashboard si es Profesional O Particular
         if (showDashboard) ...[
           _buildDashboardCard(isProfesional),
           const SizedBox(height: 30),
@@ -283,9 +285,7 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  // Widget del Dashboard adaptado
   Widget _buildDashboardCard(bool isProfesional) {
-    // Textos dinámicos según el tipo de usuario
     final String label = isProfesional
         ? 'PANEL PROFESIONAL'
         : 'PANEL DE GESTIÓN';
@@ -351,9 +351,27 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
           ),
           const SizedBox(height: 20),
+
+          // --- BOTÓN DE NAVEGACIÓN ACTUALIZADO ---
           ElevatedButton(
             onPressed: () {
-              Navigator.pushNamed(context, '/agency_dashboard');
+              if (userType == 'particular') {
+                // Navegación para Particular
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const ParticularDashboard(),
+                  ),
+                );
+              } else if (userType == 'profesional') {
+                // Navegación para Profesional (CONECTADO AHORA)
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const ProfessionalDashboard(),
+                  ),
+                );
+              }
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.white,

@@ -15,7 +15,7 @@ import 'favoritos_page.dart';
 import 'notificaciones_page.dart';
 import 'informe_admin_page.dart';
 import 'agency_dashboard.dart';
-import 'profile_page.dart'; // ✅ IMPORTACIÓN AÑADIDA
+import 'profile_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -87,7 +87,6 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  // ✅ FUNCIÓN MODIFICADA: Ahora conecta con ProfilePage
   void _showGoogleProfileCard(BuildContext context) {
     showDialog(
       context: context,
@@ -115,7 +114,6 @@ class _HomePageState extends State<HomePage> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Botón cerrar X
                     Align(
                       alignment: Alignment.topRight,
                       child: Padding(
@@ -130,8 +128,6 @@ class _HomePageState extends State<HomePage> {
                         ),
                       ),
                     ),
-
-                    // Avatar
                     Container(
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
@@ -151,8 +147,6 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ),
                     const SizedBox(height: 15),
-
-                    // Saludo
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
                       child: Text(
@@ -166,17 +160,12 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ),
                     const SizedBox(height: 30),
-
-                    // BOTONES INFERIORES
                     Row(
                       children: [
                         Expanded(
                           child: InkWell(
                             onTap: () {
-                              Navigator.pop(
-                                context,
-                              ); // Cierra el diálogo pequeño
-                              // ✅ NAVEGACIÓN A LA PÁGINA DE PERFIL NUEVA
+                              Navigator.pop(context);
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
@@ -280,7 +269,8 @@ class _HomePageState extends State<HomePage> {
       300.0,
       screenWidth * (_featuredProperties.length > 1 ? 0.4 : 0.8),
     );
-    final cardHeight = cardWidth * 1.5;
+    // ⬇️ MODIFICADO: Añadido +60 para asegurar espacio para los puntos y evitar cortes
+    final cardHeight = (cardWidth * 1.5) + 60;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -391,15 +381,16 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ),
                   ),
-                  _navItem(
-                    'Anunciar',
-                    () => Navigator.push(
+                  // ⬇️ MODIFICADO: Añadido async/await y recarga de propiedades
+                  _navItem('Anunciar', () async {
+                    await Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (context) => const NewPropertyCardPage(),
                       ),
-                    ),
-                  ),
+                    );
+                    _loadFeaturedProperties(); // Recargar al volver
+                  }),
                   _navItem(
                     'Notificaciones',
                     () => Navigator.push(
@@ -452,12 +443,16 @@ class _HomePageState extends State<HomePage> {
                   vertical: 20,
                 ),
                 child: GestureDetector(
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const AgencyDashboardPage(),
-                    ),
-                  ),
+                  onTap: () async {
+                    // ⬇️ MODIFICADO: Añadido async/await y recarga de propiedades
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const AgencyDashboardPage(),
+                      ),
+                    );
+                    _loadFeaturedProperties();
+                  },
                   child: Container(
                     height: 120,
                     decoration: BoxDecoration(
@@ -505,6 +500,7 @@ class _HomePageState extends State<HomePage> {
             _sectionSubtitle('Descubre las viviendas más recientes añadidas.'),
             const SizedBox(height: 20),
             SizedBox(
+              // Aseguramos espacio vertical extra
               height: cardHeight + 40,
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator())
@@ -556,6 +552,7 @@ class _HomePageState extends State<HomePage> {
     child: Text(_error!, style: const TextStyle(color: Colors.red)),
   );
 
+  // ⬇️ FUNCIÓN PRINCIPAL MODIFICADA CON FLECHAS ⬇️
   Widget _buildCarousel(double cardWidth, double cardHeight) {
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -564,48 +561,111 @@ class _HomePageState extends State<HomePage> {
             : (constraints.maxWidth >= 900
                   ? 3
                   : (constraints.maxWidth >= 600 ? 2 : 1));
+
+        // Calculamos cuántas páginas hay en total
         final pagesCount =
             (_featuredProperties.length + itemsPerPage - 1) ~/ itemsPerPage;
 
-        return Column(
+        // Si no hay propiedades, mostramos mensaje
+        if (_featuredProperties.isEmpty) {
+          return const Center(child: Text("No hay propiedades disponibles"));
+        }
+
+        // Usamos Stack para poner las flechas ENCIMA del carrusel
+        return Stack(
+          alignment: Alignment.center,
           children: [
-            Expanded(
-              child: PageView.builder(
-                controller: _carouselController,
-                itemCount: pagesCount,
-                onPageChanged: (p) => setState(() => _currentCarouselPage = p),
-                itemBuilder: (context, pageIndex) {
-                  final chunk = _featuredProperties
-                      .skip(pageIndex * itemsPerPage)
-                      .take(itemsPerPage)
-                      .toList();
-                  return Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: chunk
-                        .map(
-                          (property) => Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
-                            child: PropertyCard(
-                              property: property,
-                              cardWidth: cardWidth,
-                              cardHeight: cardHeight,
-                              onDetailsPressed: () => Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => PropertyDetailPage(
-                                    propertyRef: property.id,
+            Column(
+              children: [
+                Expanded(
+                  child: PageView.builder(
+                    controller: _carouselController,
+                    itemCount: pagesCount,
+                    onPageChanged: (p) =>
+                        setState(() => _currentCarouselPage = p),
+                    itemBuilder: (context, pageIndex) {
+                      final chunk = _featuredProperties
+                          .skip(pageIndex * itemsPerPage)
+                          .take(itemsPerPage)
+                          .toList();
+                      return Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: chunk
+                            .map(
+                              (property) => Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                ),
+                                child: PropertyCard(
+                                  property: property,
+                                  cardWidth: cardWidth,
+                                  cardHeight: cardHeight,
+                                  onDetailsPressed: () => Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => PropertyDetailPage(
+                                        propertyRef: property.id,
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                          ),
-                        )
-                        .toList(),
-                  );
-                },
-              ),
+                            )
+                            .toList(),
+                      );
+                    },
+                  ),
+                ),
+                // Los puntitos de abajo
+                _buildDots(pagesCount),
+              ],
             ),
-            _buildDots(pagesCount),
+
+            // --- FLECHA IZQUIERDA ---
+            // Solo se muestra si NO estamos en la primera página
+            if (_currentCarouselPage > 0)
+              Positioned(
+                left: 20,
+                child: CircleAvatar(
+                  backgroundColor: Colors.white.withOpacity(0.9),
+                  radius: 25,
+                  child: IconButton(
+                    icon: const Icon(
+                      Icons.arrow_back_ios_new,
+                      color: Colors.black,
+                    ),
+                    onPressed: () {
+                      _carouselController.previousPage(
+                        duration: const Duration(milliseconds: 400),
+                        curve: Curves.easeInOut,
+                      );
+                    },
+                  ),
+                ),
+              ),
+
+            // --- FLECHA DERECHA ---
+            // Solo se muestra si NO estamos en la última página
+            if (_currentCarouselPage < pagesCount - 1)
+              Positioned(
+                right: 20,
+                child: CircleAvatar(
+                  backgroundColor: Colors.white.withOpacity(0.9),
+                  radius: 25,
+                  child: IconButton(
+                    icon: const Icon(
+                      Icons.arrow_forward_ios,
+                      color: Colors.black,
+                    ),
+                    onPressed: () {
+                      _carouselController.nextPage(
+                        duration: const Duration(milliseconds: 400),
+                        curve: Curves.easeInOut,
+                      );
+                    },
+                  ),
+                ),
+              ),
           ],
         );
       },
