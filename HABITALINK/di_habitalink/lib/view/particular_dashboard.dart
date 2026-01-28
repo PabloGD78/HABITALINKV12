@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../theme/colors.dart'; // Asegúrate de que esta ruta sea correcta
+
+// CORRECCIÓN 1: Importamos los colores de tu proyecto real para evitar el conflicto
+// Si este import da error, asegúrate de que la ruta sea correcta según tu estructura de carpetas
+import 'package:di_habitalink/theme/colors.dart';
 
 class ParticularDashboard extends StatefulWidget {
   const ParticularDashboard({super.key});
@@ -11,12 +14,12 @@ class ParticularDashboard extends StatefulWidget {
 }
 
 class _ParticularDashboardState extends State<ParticularDashboard> {
-  final Color _backgroundColor = const Color(0xFFF3E5CD);
+  // Usamos un color de fondo seguro por si AppColors.background no existe en tu tema
+  final Color _backgroundColor = const Color(0xFFF5F7FA);
+
   String userName = "Usuario";
   bool isLoading = true;
-
-  // 1. ESTA VARIABLE CONTROLA QUÉ PANTALLA SE VE
-  int _selectedIndex = 0;
+  int _selectedIndex = 0; // 0: Dashboard, 1: Estadísticas, 2: Config
 
   @override
   void initState() {
@@ -26,42 +29,43 @@ class _ParticularDashboardState extends State<ParticularDashboard> {
 
   Future<void> _loadUserData() async {
     final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      userName = prefs.getString('userName') ?? 'Usuario';
-      isLoading = false;
-    });
+    // Simulación de carga
+    await Future.delayed(const Duration(milliseconds: 500));
+    if (mounted) {
+      setState(() {
+        userName = prefs.getString('userName') ?? 'Alberto';
+        isLoading = false;
+      });
+    }
   }
 
-  // 2. TÍTULOS DINÁMICOS SEGÚN LA SECCIÓN
   String get _currentTitle {
     switch (_selectedIndex) {
       case 0:
         return 'Mi Gestión';
       case 1:
-        return 'Mis Anuncios';
-      case 2:
         return 'Estadísticas';
-      case 3:
+      case 2:
         return 'Configuración';
       default:
         return 'Mi Gestión';
     }
   }
 
-  // 3. AQUÍ DEFINIMOS LAS VISTAS
   Widget _getBodyContent() {
-    if (isLoading)
-      return Center(child: CircularProgressIndicator(color: AppColors.primary));
+    if (isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(color: AppColors.primary),
+      );
+    }
 
     switch (_selectedIndex) {
       case 0:
         return _buildDashboardView();
       case 1:
-        return const MisAnunciosView();
-      case 2:
         return const EstadisticasView();
-      case 3:
-        return const ConfiguracionView();
+      case 2:
+        return const Center(child: Text("Configuración de Cuenta"));
       default:
         return _buildDashboardView();
     }
@@ -72,32 +76,28 @@ class _ParticularDashboardState extends State<ParticularDashboard> {
     return Scaffold(
       backgroundColor: _backgroundColor,
       appBar: AppBar(
-        backgroundColor: _backgroundColor,
+        backgroundColor: Colors.white,
         elevation: 0,
-        centerTitle: false,
+        centerTitle: true,
         title: Text(
           _currentTitle,
-          style: TextStyle(
+          style: const TextStyle(
             color: AppColors.primary,
-            fontWeight: FontWeight.bold,
+            fontWeight: FontWeight.w800,
+            fontSize: 20,
           ),
         ),
-        iconTheme: IconThemeData(color: AppColors.primary),
+        iconTheme: const IconThemeData(color: AppColors.primary),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_none_rounded, size: 28),
-            onPressed: () {},
-          ),
           Padding(
             padding: const EdgeInsets.only(right: 16.0),
             child: CircleAvatar(
+              radius: 18,
               backgroundColor: AppColors.primary.withOpacity(0.1),
-              child: Text(
-                userName.isNotEmpty ? userName[0].toUpperCase() : "U",
-                style: TextStyle(
-                  color: AppColors.primary,
-                  fontWeight: FontWeight.bold,
-                ),
+              child: const Icon(
+                Icons.person,
+                size: 20,
+                color: AppColors.primary,
               ),
             ),
           ),
@@ -105,144 +105,79 @@ class _ParticularDashboardState extends State<ParticularDashboard> {
       ),
       drawer: _buildDrawer(context),
       body: _getBodyContent(),
-      floatingActionButton: _selectedIndex == 1
-          ? FloatingActionButton.extended(
-              onPressed: () {},
-              label: const Text(
-                "Nuevo Anuncio",
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              icon: const Icon(Icons.add),
-              backgroundColor: AppColors.primary,
-            )
-          : null,
     );
   }
 
-  // --- VISTA PRINCIPAL (DASHBOARD) ---
+  // --- VISTA 1: DASHBOARD GENERAL ---
   Widget _buildDashboardView() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20.0),
+      padding: const EdgeInsets.all(24.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             "Hola, $userName",
             style: TextStyle(
-              fontSize: 28,
+              fontSize: 26,
               fontWeight: FontWeight.w800,
-              color: AppColors.primary,
-              letterSpacing: -0.5,
+              color: Colors.blueGrey[900],
             ),
           ),
+          const SizedBox(height: 5),
           Text(
-            "Resumen general de tu actividad.",
-            style: TextStyle(
-              color: AppColors.primary.withOpacity(0.6),
-              fontSize: 15,
-            ),
+            "Resumen de rendimiento de tu inmueble.",
+            style: TextStyle(color: Colors.blueGrey[400], fontSize: 14),
           ),
-          const SizedBox(height: 25),
-          Row(
+
+          const SizedBox(height: 24),
+
+          // 1. ALERTA DE CADUCIDAD (Banner)
+          _buildAlertBanner(),
+
+          const SizedBox(height: 24),
+
+          // 2. TARJETAS DE KPI (Datos rápidos)
+          const Row(
             children: [
               Expanded(
                 child: StatCard(
                   title: "Visitas Totales",
                   value: "842",
-                  icon: Icons.visibility_outlined,
-                  color: Colors.blue.shade700,
-                  bgColor: Colors.white,
+                  icon: Icons.visibility,
+                  color: Colors.blue,
                 ),
               ),
-              const SizedBox(width: 15),
+              SizedBox(width: 16),
               Expanded(
                 child: StatCard(
                   title: "Interesados",
                   value: "24",
-                  icon: Icons.chat_bubble_outline,
-                  color: Colors.green.shade700,
-                  bgColor: Colors.white,
+                  icon: Icons.chat,
+                  color: Colors.green,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 30),
-          // Botón grande hacia Estadísticas
-          GestureDetector(
-            onTap: () {
-              setState(() => _selectedIndex = 2);
-            },
-            child: Container(
-              height: 120,
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black12,
-                    blurRadius: 10,
-                    offset: const Offset(0, 5),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.shade50,
-                      borderRadius: BorderRadius.circular(15),
-                    ),
-                    child: Icon(
-                      Icons.auto_graph_rounded,
-                      size: 40,
-                      color: Colors.orange,
-                    ),
-                  ),
-                  const SizedBox(width: 20),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          "Ver Rendimiento",
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.primary,
-                          ),
-                        ),
-                        const SizedBox(height: 5),
-                        Text(
-                          "Consulta la evolución detallada.",
-                          style: TextStyle(color: Colors.grey, fontSize: 13),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 30),
-          Text(
-            "Propiedades destacadas",
+
+          const SizedBox(height: 32),
+
+          const Text(
+            "Rendimiento Inmediato",
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
               color: AppColors.primary,
             ),
           ),
-          const SizedBox(height: 10),
-          AdCard(
+          const SizedBox(height: 16),
+
+          // Tarjeta de resumen del anuncio principal
+          const AdCard(
             title: "Ático reformado en Centro",
             price: "240.000€",
             views: 152,
             contacts: 8,
-            daysLeft: 65,
+            daysLeft: 5,
             imageUrl:
                 "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=300",
             primaryColor: AppColors.primary,
@@ -252,213 +187,148 @@ class _ParticularDashboardState extends State<ParticularDashboard> {
     );
   }
 
-  // --- MENÚ LATERAL (DRAWER) ---
+  Widget _buildAlertBanner() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF4E5), // Fondo naranja suave
+        border: Border.all(color: const Color(0xFFFFCC80)),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.warning_amber_rounded,
+            color: Colors.orange,
+            size: 28,
+          ),
+          const SizedBox(width: 16),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Atención requerida",
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.orange,
+                  ),
+                ),
+                Text(
+                  "Tu anuncio caduca en 5 días.",
+                  style: TextStyle(fontSize: 12, color: Colors.black54),
+                ),
+              ],
+            ),
+          ),
+          TextButton(
+            onPressed: () {},
+            child: const Text(
+              "Renovar",
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.orange,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Drawer _buildDrawer(BuildContext context) {
     return Drawer(
+      backgroundColor: Colors.white,
       child: Column(
         children: [
           UserAccountsDrawerHeader(
-            decoration: BoxDecoration(
-              color: AppColors.primary,
-              image: DecorationImage(
-                image: NetworkImage(
-                  "https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=500&q=60",
-                ),
-                fit: BoxFit.cover,
-                colorFilter: ColorFilter.mode(
-                  AppColors.primary.withOpacity(0.8),
-                  BlendMode.darken,
-                ),
-              ),
-            ),
+            decoration: const BoxDecoration(color: AppColors.primary),
             accountName: Text(
               userName,
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
             ),
-            accountEmail: const Text("Panel de Control"),
-            currentAccountPicture: CircleAvatar(
+            accountEmail: const Text("Particular Premium"),
+            currentAccountPicture: const CircleAvatar(
               backgroundColor: Colors.white,
-              child: Text(
-                userName.isNotEmpty ? userName[0].toUpperCase() : "U",
-                style: TextStyle(
-                  fontSize: 24,
-                  color: AppColors.primary,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              child: Icon(Icons.person, size: 30, color: Colors.black87),
             ),
           ),
-          ListTile(
-            leading: Icon(
-              Icons.dashboard_rounded,
-              color: _selectedIndex == 0 ? AppColors.primary : Colors.grey,
-            ),
-            title: Text(
-              'Panel Principal',
-              style: TextStyle(
-                color: _selectedIndex == 0 ? AppColors.primary : Colors.black87,
-                fontWeight: _selectedIndex == 0
-                    ? FontWeight.bold
-                    : FontWeight.normal,
-              ),
-            ),
-            selected: _selectedIndex == 0,
-            onTap: () {
-              setState(() => _selectedIndex = 0);
-              Navigator.pop(context);
-            },
-          ),
-          ListTile(
-            leading: Icon(
-              Icons.home_work_outlined,
-              color: _selectedIndex == 1 ? AppColors.primary : Colors.grey,
-            ),
-            title: Text(
-              'Mis Anuncios',
-              style: TextStyle(
-                color: _selectedIndex == 1 ? AppColors.primary : Colors.black87,
-                fontWeight: _selectedIndex == 1
-                    ? FontWeight.bold
-                    : FontWeight.normal,
-              ),
-            ),
-            selected: _selectedIndex == 1,
-            onTap: () {
-              setState(() => _selectedIndex = 1);
-              Navigator.pop(context);
-            },
-          ),
-          ListTile(
-            leading: Icon(
-              Icons.bar_chart_rounded,
-              color: _selectedIndex == 2 ? AppColors.primary : Colors.grey,
-            ),
-            title: Text(
-              'Estadísticas',
-              style: TextStyle(
-                color: _selectedIndex == 2 ? AppColors.primary : Colors.black87,
-                fontWeight: _selectedIndex == 2
-                    ? FontWeight.bold
-                    : FontWeight.normal,
-              ),
-            ),
-            selected: _selectedIndex == 2,
-            onTap: () {
-              setState(() => _selectedIndex = 2);
-              Navigator.pop(context);
-            },
-          ),
+          _buildDrawerItem(Icons.dashboard, "Mi Gestión", 0),
+          _buildDrawerItem(Icons.bar_chart, "Estadísticas", 1),
+          _buildDrawerItem(Icons.settings, "Configuración", 2),
+
           const Spacer(),
           const Divider(),
-          ListTile(
-            leading: Icon(
-              Icons.settings_outlined,
-              color: _selectedIndex == 3 ? AppColors.primary : Colors.grey,
-            ),
-            title: Text(
-              'Configuración',
-              style: TextStyle(
-                color: _selectedIndex == 3 ? AppColors.primary : Colors.black87,
-                fontWeight: _selectedIndex == 3
-                    ? FontWeight.bold
-                    : FontWeight.normal,
-              ),
-            ),
-            selected: _selectedIndex == 3,
-            onTap: () {
-              setState(() => _selectedIndex = 3);
-              Navigator.pop(context);
-            },
-          ),
-
-          // --- AQUÍ ESTÁ EL CAMBIO ---
-          ListTile(
-            leading: const Icon(Icons.exit_to_app, color: Colors.redAccent),
-            title: const Text(
-              'Salir', // CAMBIADO DE "Cerrar Sesión" A "Salir"
-              style: TextStyle(color: Colors.redAccent),
-            ),
-            onTap: () {
-              Navigator.pop(context); // Cierra el Drawer
-              Navigator.pop(context); // Sale de la pantalla (vuelve atrás)
-            },
-          ),
+          _buildDrawerItem(Icons.exit_to_app, "Salir", -1, isDestructive: true),
           const SizedBox(height: 20),
         ],
       ),
     );
   }
-}
 
-// --- VISTAS INDIVIDUALES ---
-
-class MisAnunciosView extends StatelessWidget {
-  const MisAnunciosView({super.key});
-  @override
-  Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.all(20),
-      children: [
-        AdCard(
-          title: "Ático reformado en Centro",
-          price: "240.000€",
-          views: 152,
-          contacts: 8,
-          daysLeft: 65,
-          imageUrl:
-              "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=300",
-          primaryColor: AppColors.primary,
+  Widget _buildDrawerItem(
+    IconData icon,
+    String title,
+    int index, {
+    bool isDestructive = false,
+  }) {
+    bool isSelected = _selectedIndex == index;
+    return ListTile(
+      leading: Icon(
+        icon,
+        color: isDestructive
+            ? Colors.red
+            : (isSelected ? AppColors.primary : Colors.grey),
+      ),
+      title: Text(
+        title,
+        style: TextStyle(
+          color: isDestructive
+              ? Colors.red
+              : (isSelected ? AppColors.primary : Colors.black87),
+          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
         ),
-        AdCard(
-          title: "Piso luminoso con terraza",
-          price: "185.000€",
-          views: 450,
-          contacts: 23,
-          daysLeft: 5,
-          imageUrl:
-              "https://images.unsplash.com/photo-1493809842364-78817add7ffb?auto=format&fit=crop&w=300",
-          primaryColor: AppColors.primary,
-        ),
-      ],
+      ),
+      onTap: () {
+        Navigator.pop(context); // Cerrar drawer
+        if (index != -1) {
+          setState(() => _selectedIndex = index);
+        } else {
+          // Lógica de salir
+          Navigator.pop(context);
+        }
+      },
     );
   }
 }
 
-// --- ESTADÍSTICAS (SOLO GRÁFICO LINEAL) ---
+// --- VISTA DE ESTADÍSTICAS (BAR CHART) ---
 class EstadisticasView extends StatelessWidget {
   const EstadisticasView({super.key});
+
+  // CORRECCIÓN: Definimos un color local si AppColors.accent no existe en tu archivo de tema
+  Color get _accentColor => const Color(0xFFD4AF37);
 
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            "Rendimiento Anual",
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: AppColors.primary,
-            ),
+          const Text(
+            "Estadísticas Detalladas",
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
           ),
-          const SizedBox(height: 5),
-          Text(
-            "Evolución de visitas en los últimos meses",
-            style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+          const Text(
+            "Comparativa: Visitas vs Contactos Recibidos",
+            style: TextStyle(color: Colors.grey),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 24),
 
-          // GRÁFICO DE LÍNEAS
           Container(
-            height: 350, // Un poco más alto ahora que está solo
-            padding: const EdgeInsets.only(
-              right: 20,
-              left: 10,
-              top: 20,
-              bottom: 10,
-            ),
+            height: 350,
+            padding: const EdgeInsets.fromLTRB(16, 24, 16, 10),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(20),
@@ -466,205 +336,208 @@ class EstadisticasView extends StatelessWidget {
                 BoxShadow(
                   color: Colors.black.withOpacity(0.05),
                   blurRadius: 10,
+                  offset: const Offset(0, 4),
                 ),
               ],
             ),
-            child: LineChart(
-              LineChartData(
-                gridData: FlGridData(
-                  show: true,
-                  drawVerticalLine: false,
-                  getDrawingHorizontalLine: (value) =>
-                      FlLine(color: Colors.grey.shade100, strokeWidth: 1),
+            child: BarChart(
+              BarChartData(
+                alignment: BarChartAlignment.spaceAround,
+                maxY: 100,
+                barTouchData: BarTouchData(
+                  touchTooltipData: BarTouchTooltipData(
+                    getTooltipColor: (_) => Colors.blueGrey,
+                  ),
                 ),
                 titlesData: FlTitlesData(
                   show: true,
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      getTitlesWidget: (value, meta) {
+                        const style = TextStyle(
+                          color: Colors.grey,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 10,
+                        );
+                        String text;
+                        switch (value.toInt()) {
+                          case 0:
+                            text = 'Ene';
+                            break;
+                          case 1:
+                            text = 'Feb';
+                            break;
+                          case 2:
+                            text = 'Mar';
+                            break;
+                          case 3:
+                            text = 'Abr';
+                            break;
+                          default:
+                            text = '';
+                        }
+                        // CORRECCIÓN 2: Se usa 'meta' en lugar de 'axisSide'
+                        // para cumplir con la nueva versión de fl_chart
+                        return SideTitleWidget(
+                          meta: meta,
+                          space: 4,
+                          child: Text(text, style: style),
+                        );
+                      },
+                    ),
+                  ),
+                  leftTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
                   rightTitles: const AxisTitles(
                     sideTitles: SideTitles(showTitles: false),
                   ),
                   topTitles: const AxisTitles(
                     sideTitles: SideTitles(showTitles: false),
                   ),
-                  bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 30,
-                      interval: 1,
-                      getTitlesWidget: (value, meta) {
-                        const style = TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                          color: Colors.grey,
-                        );
-                        switch (value.toInt()) {
-                          case 0:
-                            return const Text('ENE', style: style);
-                          case 2:
-                            return const Text('MAR', style: style);
-                          case 4:
-                            return const Text('MAY', style: style);
-                          case 6:
-                            return const Text('JUL', style: style);
-                          case 8:
-                            return const Text('SEP', style: style);
-                          case 10:
-                            return const Text('NOV', style: style);
-                        }
-                        return const Text('');
-                      },
-                    ),
-                  ),
-                  leftTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      interval: 20,
-                      reservedSize: 40,
-                      getTitlesWidget: (value, meta) => Text(
-                        '${value.toInt()}',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                          color: Colors.grey,
-                        ),
-                      ),
-                    ),
-                  ),
                 ),
                 borderData: FlBorderData(show: false),
-                minX: 0,
-                maxX: 11,
-                minY: 0,
-                maxY: 100,
-                lineBarsData: [
-                  LineChartBarData(
-                    spots: const [
-                      FlSpot(0, 20),
-                      FlSpot(1, 35),
-                      FlSpot(2, 28),
-                      FlSpot(3, 45),
-                      FlSpot(4, 40),
-                      FlSpot(5, 60),
-                      FlSpot(6, 55),
-                      FlSpot(7, 70),
-                      FlSpot(8, 65),
-                      FlSpot(9, 85),
-                      FlSpot(10, 90),
-                      FlSpot(11, 80),
-                    ],
-                    isCurved: true,
-                    gradient: LinearGradient(
-                      colors: [AppColors.primary, Colors.blueAccent],
-                    ),
-                    barWidth: 4,
-                    isStrokeCapRound: true,
-                    dotData: const FlDotData(show: false),
-                    belowBarData: BarAreaData(
-                      show: true,
-                      gradient: LinearGradient(
-                        colors: [
-                          AppColors.primary.withOpacity(0.3),
-                          Colors.blueAccent.withOpacity(0.0),
-                        ],
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                      ),
-                    ),
-                  ),
+                gridData: FlGridData(
+                  show: true,
+                  drawVerticalLine: false,
+                  getDrawingHorizontalLine: (_) =>
+                      FlLine(color: Colors.grey.shade100),
+                ),
+                barGroups: [
+                  _makeGroupData(0, 65, 12),
+                  _makeGroupData(1, 45, 8),
+                  _makeGroupData(2, 85, 20),
+                  _makeGroupData(3, 55, 15),
                 ],
               ),
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
+          // Leyenda del gráfico
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _buildLegend(AppColors.primary, "Visitas"),
+              const SizedBox(width: 20),
+              _buildLegend(_accentColor, "Contactos"),
+            ],
+          ),
+
+          const SizedBox(height: 30),
+
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.blue.shade50,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.blue.shade100),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.info_outline, color: AppColors.primary),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    "Tu anuncio tiene un 15% más de visibilidad que el mes anterior.",
+                    style: TextStyle(color: Colors.blue.shade900),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
       ),
     );
   }
-}
 
-class ConfiguracionView extends StatelessWidget {
-  const ConfiguracionView({super.key});
-  @override
-  Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.all(20),
+  Widget _buildLegend(Color color, String text) {
+    return Row(
       children: [
-        ListTile(
-          leading: const Icon(Icons.person),
-          title: const Text("Editar Perfil"),
-          onTap: () {},
+        Container(
+          width: 12,
+          height: 12,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
-        ListTile(
-          leading: const Icon(Icons.lock),
-          title: const Text("Cambiar Contraseña"),
-          onTap: () {},
+        const SizedBox(width: 6),
+        Text(
+          text,
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.grey,
+          ),
         ),
-        ListTile(
-          leading: const Icon(Icons.notifications),
-          title: const Text("Notificaciones"),
-          trailing: Switch(value: true, onChanged: (v) {}),
+      ],
+    );
+  }
+
+  BarChartGroupData _makeGroupData(int x, double y1, double y2) {
+    return BarChartGroupData(
+      barsSpace: 4,
+      x: x,
+      barRods: [
+        BarChartRodData(
+          toY: y1,
+          color: AppColors.primary,
+          width: 12,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+        ),
+        BarChartRodData(
+          toY: y2,
+          color: _accentColor,
+          width: 12,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
         ),
       ],
     );
   }
 }
 
-// --- WIDGETS AUXILIARES ---
+// --- WIDGETS REUTILIZABLES ---
 
 class StatCard extends StatelessWidget {
   final String title, value;
   final IconData icon;
-  final Color color, bgColor;
+  final Color color;
   const StatCard({
     super.key,
     required this.title,
     required this.value,
     required this.icon,
     required this.color,
-    required this.bgColor,
   });
+
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(20),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.03),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: color, size: 24),
+          CircleAvatar(
+            backgroundColor: color.withOpacity(0.1),
+            radius: 18,
+            child: Icon(icon, size: 20, color: color),
           ),
-          const SizedBox(height: 15),
+          const SizedBox(height: 12),
           Text(
             value,
-            style: TextStyle(
-              fontSize: 26,
-              fontWeight: FontWeight.bold,
-              color: Colors.blueGrey.shade900,
-            ),
+            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
           ),
-          const SizedBox(height: 5),
-          Text(
-            title,
-            style: TextStyle(
-              color: Colors.blueGrey.shade400,
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
+          Text(title, style: const TextStyle(fontSize: 12, color: Colors.grey)),
         ],
       ),
     );
@@ -675,6 +548,7 @@ class AdCard extends StatelessWidget {
   final String title, price, imageUrl;
   final int views, contacts, daysLeft;
   final Color primaryColor;
+
   const AdCard({
     super.key,
     required this.title,
@@ -685,74 +559,104 @@ class AdCard extends StatelessWidget {
     required this.imageUrl,
     required this.primaryColor,
   });
+
   @override
   Widget build(BuildContext context) {
-    bool isUrgent = daysLeft <= 7;
+    bool isExpired = daysLeft <= 0;
+    bool isUrgent = daysLeft > 0 && daysLeft <= 7;
+
+    Color statusColor = isExpired
+        ? Colors.red
+        : (isUrgent ? Colors.orange : Colors.green);
+    String statusText = isExpired
+        ? "Caducado"
+        : (isUrgent ? "Caduca pronto" : "Activo");
+
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.04),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
           ),
         ],
       ),
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.all(15),
+            padding: const EdgeInsets.all(12),
             child: Row(
               children: [
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(10),
                   child: Image.network(
                     imageUrl,
-                    width: 90,
-                    height: 90,
+                    width: 80,
+                    height: 80,
                     fit: BoxFit.cover,
+                    errorBuilder: (c, o, s) => Container(
+                      width: 80,
+                      height: 80,
+                      color: Colors.grey[200],
+                      child: const Icon(Icons.home),
+                    ),
                   ),
                 ),
-                const SizedBox(width: 15),
+                const SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         title,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                          color: Colors.blueGrey.shade900,
+                          fontSize: 15,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 4),
                       Text(
                         price,
                         style: TextStyle(
                           color: primaryColor,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w900,
                           fontSize: 16,
                         ),
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 8),
                       Row(
                         children: [
-                          _MetricPill(
-                            icon: Icons.visibility,
-                            value: "$views",
-                            color: Colors.blue.shade600,
+                          Icon(
+                            Icons.visibility,
+                            size: 14,
+                            color: Colors.grey[400],
                           ),
-                          const SizedBox(width: 8),
-                          _MetricPill(
-                            icon: Icons.chat_bubble,
-                            value: "$contacts",
-                            color: Colors.green.shade600,
+                          const SizedBox(width: 4),
+                          Text(
+                            "$views",
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Icon(
+                            Icons.chat_bubble,
+                            size: 14,
+                            color: Colors.grey[400],
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            "$contacts",
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                            ),
                           ),
                         ],
                       ),
@@ -762,73 +666,47 @@ class AdCard extends StatelessWidget {
               ],
             ),
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade50,
-              borderRadius: const BorderRadius.only(
-                bottomLeft: Radius.circular(20),
-                bottomRight: Radius.circular(20),
-              ),
-              border: Border(top: BorderSide(color: Colors.grey.shade100)),
-            ),
+          const Divider(height: 1),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Row(
               children: [
-                Icon(
-                  Icons.access_time_rounded,
-                  size: 14,
-                  color: isUrgent ? Colors.orange : Colors.green,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  isUrgent ? "¡Caduca pronto!" : "Activo",
-                  style: TextStyle(
-                    color: isUrgent ? Colors.orange : Colors.green,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: statusColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    statusText,
+                    style: TextStyle(
+                      color: statusColor,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
                 const Spacer(),
-                Text(
-                  "Gestión rápida",
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
-                ),
+                if (isUrgent || isExpired)
+                  TextButton(
+                    onPressed: () {},
+                    child: Text(
+                      "Renovar",
+                      style: TextStyle(color: statusColor, fontSize: 12),
+                    ),
+                  )
+                else
+                  TextButton(
+                    onPressed: () {},
+                    child: const Text(
+                      "Ver detalles",
+                      style: TextStyle(fontSize: 12),
+                    ),
+                  ),
               ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MetricPill extends StatelessWidget {
-  final IconData icon;
-  final String value;
-  final Color color;
-  const _MetricPill({
-    required this.icon,
-    required this.value,
-    required this.color,
-  });
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: 14, color: color),
-          const SizedBox(width: 4),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              color: color,
             ),
           ),
         ],
