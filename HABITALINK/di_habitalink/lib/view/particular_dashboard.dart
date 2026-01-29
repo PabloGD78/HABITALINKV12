@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:math';
+import '../theme/colors.dart';
 
 // ---------------- MODELO ----------------
 class Anuncio {
@@ -39,8 +40,8 @@ class ParticularDashboard extends StatefulWidget {
 }
 
 class _ParticularDashboardState extends State<ParticularDashboard> {
-  final Color _primaryColor = const Color(0xFF0D47A1);
-  final Color _backgroundColor = const Color(0xFFF5F7FA);
+  final Color _primaryColor = AppColors.primary;
+  final Color _backgroundColor = const Color(0xFFF3E5CD);
 
   String userName = "Cargando...";
   String? userId;
@@ -59,7 +60,6 @@ class _ParticularDashboardState extends State<ParticularDashboard> {
         prefs.getString('idUsuario') ??
         prefs.getString('userId') ??
         prefs.getString('id');
-
     String storedName = prefs.getString('userName') ?? 'Usuario';
 
     if (mounted) {
@@ -67,7 +67,6 @@ class _ParticularDashboardState extends State<ParticularDashboard> {
         userName = storedName;
         userId = finalId;
       });
-
       if (finalId != null && finalId.isNotEmpty) {
         _cargarAnunciosDelBackend(finalId);
       } else {
@@ -102,12 +101,11 @@ class _ParticularDashboardState extends State<ParticularDashboard> {
           );
         }).toList();
 
-        if (mounted) {
+        if (mounted)
           setState(() {
             misAnuncios = tempAnuncios;
             isLoadingAnuncios = false;
           });
-        }
       } else {
         if (mounted) setState(() => isLoadingAnuncios = false);
       }
@@ -122,15 +120,26 @@ class _ParticularDashboardState extends State<ParticularDashboard> {
       backgroundColor: _backgroundColor,
       appBar: AppBar(
         title: const Text(
-          'Análisis de Cartera',
-          style: TextStyle(fontWeight: FontWeight.bold),
+          'ANÁLISIS DE CARTERA',
+          style: TextStyle(
+            fontWeight: FontWeight.w900,
+            fontSize: 16,
+            letterSpacing: 1.2,
+          ),
         ),
-        backgroundColor: Colors.white,
+        centerTitle: true,
+        backgroundColor: Colors.transparent,
         foregroundColor: _primaryColor,
         elevation: 0,
+        leading: Builder(
+          builder: (context) => IconButton(
+            icon: const Icon(Icons.menu_open_rounded, size: 28),
+            onPressed: () => Scaffold.of(context).openDrawer(),
+          ),
+        ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh_rounded),
             onPressed: () {
               setState(() => isLoadingAnuncios = true);
               _loadUserData();
@@ -138,48 +147,125 @@ class _ParticularDashboardState extends State<ParticularDashboard> {
           ),
         ],
       ),
+      // --- MENU LATERAL PROFESIONAL ---
       drawer: Drawer(
-        child: ListView(
+        backgroundColor: Colors.white,
+        child: Column(
           children: [
-            UserAccountsDrawerHeader(
-              accountName: Text(userName),
-              accountEmail: Text(userId ?? "Sin ID"),
-              decoration: BoxDecoration(color: _primaryColor),
+            Container(
+              padding: const EdgeInsets.only(
+                top: 60,
+                bottom: 30,
+                left: 20,
+                right: 20,
+              ),
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: _primaryColor,
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(30),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  CircleAvatar(
+                    radius: 35,
+                    backgroundColor: Colors.white,
+                    child: Text(
+                      userName[0].toUpperCase(),
+                      style: TextStyle(
+                        color: _primaryColor,
+                        fontSize: 30,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 15),
+                  Text(
+                    userName,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    userId ?? "ID Usuario",
+                    style: const TextStyle(color: Colors.white70, fontSize: 12),
+                  ),
+                ],
+              ),
             ),
+            const SizedBox(height: 20),
+            // OPCIÓN VOLVER AL PERFIL (Estilo Profesional)
             ListTile(
-              leading: const Icon(Icons.exit_to_app, color: Colors.red),
-              title: const Text("Cerrar Sesión"),
-              onTap: () async {
-                final prefs = await SharedPreferences.getInstance();
-                await prefs.clear();
-                Navigator.of(context).pushReplacementNamed('/login');
+              contentPadding: const EdgeInsets.symmetric(horizontal: 25),
+              leading: Icon(
+                Icons.account_circle_outlined,
+                color: _primaryColor,
+              ),
+              title: const Text(
+                "VOLVER A MI PERFIL",
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 13,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              onTap: () {
+                Navigator.pop(context); // Cierra drawer
+                Navigator.pop(context); // Vuelve al perfil
               },
+            ),
+            const Divider(indent: 20, endIndent: 20),
+            const Spacer(),
+            const Padding(
+              padding: EdgeInsets.all(20),
+              child: Text(
+                "GESTIÓN PROFESIONAL",
+                style: TextStyle(
+                  color: Colors.grey,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
+                ),
+              ),
             ),
           ],
         ),
       ),
       body: isLoadingAnuncios
-          ? const Center(child: CircularProgressIndicator())
-          : EstadisticasView(misAnuncios: misAnuncios),
+          ? Center(child: CircularProgressIndicator(color: _primaryColor))
+          : EstadisticasView(
+              misAnuncios: misAnuncios,
+              primaryColor: _primaryColor,
+            ),
     );
   }
 }
 
-// =========================================================
-//            VISTA DE ESTADÍSTICAS (CORREGIDA)
-// =========================================================
-
+// ---------------- VISTA DE ESTADÍSTICAS PROFESIONAL ----------------
 class EstadisticasView extends StatelessWidget {
   final List<Anuncio> misAnuncios;
-  const EstadisticasView({super.key, required this.misAnuncios});
+  final Color primaryColor;
+  const EstadisticasView({
+    super.key,
+    required this.misAnuncios,
+    required this.primaryColor,
+  });
 
   @override
   Widget build(BuildContext context) {
     if (misAnuncios.isEmpty) {
-      return const Center(child: Text("No hay datos para mostrar gráficos"));
+      return const Center(
+        child: Text(
+          "No hay datos para mostrar gráficos",
+          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey),
+        ),
+      );
     }
 
-    // Agrupación de datos
     Map<String, int> conteoTipos = {};
     for (var anuncio in misAnuncios) {
       String rawTipo = anuncio.tipo.trim();
@@ -194,27 +280,56 @@ class EstadisticasView extends StatelessWidget {
     double techoY = (valores.reduce(max) + 1).toDouble();
 
     return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.all(20),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            "Distribución por Tipo",
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            "RENDIMIENTO GENERAL",
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1.0,
+            ),
           ),
-          const SizedBox(height: 10),
-          const Text(
-            "Cantidad de inmuebles registrados",
-            style: TextStyle(color: Colors.grey),
+          const SizedBox(height: 5),
+          Text(
+            "Análisis de distribución de activos",
+            style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
           ),
-          const SizedBox(height: 40),
-
-          AspectRatio(
-            aspectRatio: 1.5,
+          const SizedBox(height: 30),
+          Container(
+            height: 300,
+            padding: const EdgeInsets.only(top: 20, right: 20, left: 10),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 15,
+                ),
+              ],
+            ),
             child: BarChart(
               BarChartData(
                 alignment: BarChartAlignment.spaceAround,
                 maxY: techoY,
-                barTouchData: BarTouchData(enabled: true),
+                barTouchData: BarTouchData(
+                  touchTooltipData: BarTouchTooltipData(
+                    getTooltipColor: (group) => primaryColor,
+                    getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                      return BarTooltipItem(
+                        rod.toY.toInt().toString(),
+                        const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      );
+                    },
+                  ),
+                ),
                 titlesData: FlTitlesData(
                   show: true,
                   bottomTitles: AxisTitles(
@@ -224,14 +339,13 @@ class EstadisticasView extends StatelessWidget {
                       getTitlesWidget: (value, meta) {
                         int index = value.toInt();
                         if (index >= 0 && index < tipos.length) {
-                          // CORRECCIÓN AQUÍ: Uso seguro de SideTitleWidget
                           return SideTitleWidget(
                             meta: meta,
                             space: 8,
                             child: Text(
                               tipos[index],
                               style: const TextStyle(
-                                fontSize: 10,
+                                fontSize: 9,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -248,7 +362,10 @@ class EstadisticasView extends StatelessWidget {
                       reservedSize: 30,
                       getTitlesWidget: (value, meta) => Text(
                         value.toInt().toString(),
-                        style: const TextStyle(fontSize: 10),
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: Colors.grey,
+                        ),
                       ),
                     ),
                   ),
@@ -271,10 +388,10 @@ class EstadisticasView extends StatelessWidget {
                     barRods: [
                       BarChartRodData(
                         toY: valores[index].toDouble(),
-                        color: Colors.blueAccent,
-                        width: 25,
+                        color: primaryColor,
+                        width: 22,
                         borderRadius: const BorderRadius.vertical(
-                          top: Radius.circular(4),
+                          top: Radius.circular(6),
                         ),
                       ),
                     ],
@@ -283,7 +400,6 @@ class EstadisticasView extends StatelessWidget {
               ),
             ),
           ),
-
           const SizedBox(height: 30),
           _buildTableDetail(conteoTipos),
         ],
@@ -292,48 +408,64 @@ class EstadisticasView extends StatelessWidget {
   }
 
   Widget _buildTableDetail(Map<String, int> conteoTipos) {
-    return Card(
-      elevation: 3,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            const Text(
-              "Resumen de Inventario",
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 15),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            "RESUMEN DE INVENTARIO",
+            style: TextStyle(
+              fontWeight: FontWeight.w900,
+              fontSize: 14,
+              letterSpacing: 0.5,
             ),
-            const Divider(height: 20),
-            ...conteoTipos.entries.map(
-              (e) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 6),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(e.key, style: const TextStyle(fontSize: 15)),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF0D47A1),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        "${e.value}",
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
+          ),
+          const Divider(height: 30),
+          ...conteoTipos.entries.map(
+            (e) => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    e.key,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: primaryColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      "${e.value} uds.",
+                      style: TextStyle(
+                        color: primaryColor,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 12,
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

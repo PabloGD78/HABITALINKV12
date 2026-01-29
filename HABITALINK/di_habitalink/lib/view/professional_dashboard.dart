@@ -29,7 +29,7 @@ class Anuncio {
   });
 }
 
-// ---------------- DASHBOARD PROFESIONAL (SOLO MÉTRICAS) ----------------
+// ---------------- DASHBOARD PROFESIONAL ----------------
 class ProfessionalDashboard extends StatefulWidget {
   const ProfessionalDashboard({super.key});
 
@@ -38,16 +38,14 @@ class ProfessionalDashboard extends StatefulWidget {
 }
 
 class _ProfessionalDashboardState extends State<ProfessionalDashboard> {
-  final Color _primaryColor = const Color(0xFF0D47A1);
-  final Color _accentColor = const Color(0xFFD4AF37);
-  final Color _backgroundColor = const Color(0xFFF5F7FA);
+  // PALETA DE COLORES
+  static const Color customBackground = Color(0xFFF1E6CC); // Crema
+  static const Color customGreen = Color(0xFF2D5248); // Verde oscuro
+  static const Color cardColor = Color(0xFFF7F0E1); // Crema claro
 
   String userName = "Cargando...";
   String? userId;
-  bool isLoading = true;
   bool isLoadingAnuncios = true;
-  String debugMessage = "";
-
   List<Anuncio> misAnuncios = [];
 
   @override
@@ -62,23 +60,17 @@ class _ProfessionalDashboardState extends State<ProfessionalDashboard> {
         prefs.getString('idUsuario') ??
         prefs.getString('userId') ??
         prefs.getString('id');
-
     String storedName = prefs.getString('userName') ?? 'Agente Inmobiliario';
 
     if (mounted) {
       setState(() {
         userName = storedName;
         userId = finalId;
-        isLoading = false;
-
-        if (finalId == null) {
-          debugMessage = "ERROR: No se encontró ID. Cierra sesión.";
-          isLoadingAnuncios = false;
-        }
       });
-
       if (finalId != null && finalId.isNotEmpty) {
         _cargarAnunciosDelBackend(finalId);
+      } else {
+        setState(() => isLoadingAnuncios = false);
       }
     }
   }
@@ -89,35 +81,25 @@ class _ProfessionalDashboardState extends State<ProfessionalDashboard> {
 
     try {
       final response = await http.get(url);
-
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        List<dynamic> listaJson = [];
-        if (data is Map && data.containsKey('data')) {
-          listaJson = data['data'];
-        } else if (data is List) {
-          listaJson = data;
-        }
+        List<dynamic> listaJson = (data is Map && data.containsKey('data'))
+            ? data['data']
+            : (data is List ? data : []);
 
-        List<Anuncio> tempAnuncios = [];
-        for (var item in listaJson) {
-          String finalImgUrl = 'https://via.placeholder.com/150';
-          var rawImg = item['imagenes'] ?? item['imagenPrincipal'];
-          // ... Lógica de imagen mantenida
-          tempAnuncios.add(
-            Anuncio(
-              id: item['id'].toString(),
-              title: item['nombre'] ?? item['titulo'] ?? 'Sin título',
-              price: double.tryParse((item['precio'] ?? 0).toString()) ?? 0.0,
-              views: int.tryParse((item['visitas'] ?? 0).toString()) ?? 0,
-              contacts: int.tryParse((item['contactos'] ?? 0).toString()) ?? 0,
-              expirationDate: DateTime.now(),
-              imageUrl: finalImgUrl,
-              status: item['estado'] ?? 'Activo',
-              tipo: item['tipo'] ?? 'Desconocido',
-            ),
+        List<Anuncio> tempAnuncios = listaJson.map((item) {
+          return Anuncio(
+            id: item['id'].toString(),
+            title: item['nombre'] ?? item['titulo'] ?? 'Sin título',
+            price: double.tryParse((item['precio'] ?? 0).toString()) ?? 0.0,
+            views: int.tryParse((item['visitas'] ?? 0).toString()) ?? 0,
+            contacts: int.tryParse((item['contactos'] ?? 0).toString()) ?? 0,
+            expirationDate: DateTime.now(),
+            imageUrl: 'https://via.placeholder.com/150',
+            status: item['estado'] ?? 'Activo',
+            tipo: item['tipo'] ?? 'Propiedad',
           );
-        }
+        }).toList();
 
         if (mounted) {
           setState(() {
@@ -125,265 +107,313 @@ class _ProfessionalDashboardState extends State<ProfessionalDashboard> {
             isLoadingAnuncios = false;
           });
         }
-      } else {
-        if (mounted) setState(() => isLoadingAnuncios = false);
       }
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          debugMessage = "Error de conexión: $e";
-          isLoadingAnuncios = false;
-        });
-      }
+      if (mounted) setState(() => isLoadingAnuncios = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _backgroundColor,
+      backgroundColor: customBackground,
       appBar: AppBar(
         title: const Text(
-          'Análisis de Cartera',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        backgroundColor: Colors.white,
-        foregroundColor: _primaryColor,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () {
-              setState(() {
-                isLoadingAnuncios = true;
-              });
-              _loadUserData();
-            },
+          'ANÁLISIS DE CARTERA',
+          style: TextStyle(
+            fontWeight: FontWeight.w900,
+            color: customGreen,
+            fontSize: 16,
+            letterSpacing: 1.2,
           ),
-        ],
+        ),
+        centerTitle: true,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: customGreen),
       ),
+      // --- MENU LATERAL (DRAWER) MODIFICADO ---
       drawer: Drawer(
-        child: ListView(
+        backgroundColor: Colors.white,
+        child: Column(
           children: [
-            UserAccountsDrawerHeader(
-              accountName: Text(userName),
-              accountEmail: Text(userId ?? "ID Profesional"),
-              decoration: BoxDecoration(color: _primaryColor),
-              currentAccountPicture: CircleAvatar(
-                backgroundColor: Colors.white,
-                child: Text(
-                  userName.isNotEmpty ? userName[0] : "P",
-                  style: TextStyle(color: _primaryColor, fontSize: 24),
+            // Cabecera profesional con estilo curvo
+            Container(
+              padding: const EdgeInsets.only(
+                top: 60,
+                bottom: 30,
+                left: 20,
+                right: 20,
+              ),
+              width: double.infinity,
+              decoration: const BoxDecoration(
+                color: customGreen,
+                borderRadius: BorderRadius.only(
+                  bottomLeft: Radius.circular(30),
                 ),
               ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  CircleAvatar(
+                    radius: 35,
+                    backgroundColor: customBackground,
+                    child: Text(
+                      userName.isNotEmpty ? userName[0].toUpperCase() : "P",
+                      style: const TextStyle(
+                        color: customGreen,
+                        fontSize: 30,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 15),
+                  Text(
+                    userName,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    userId ?? "ID Profesional",
+                    style: const TextStyle(color: Colors.white70, fontSize: 12),
+                  ),
+                ],
+              ),
             ),
+            const SizedBox(height: 20),
+            // Botón principal: Volver al Perfil
             ListTile(
-              leading: const Icon(Icons.exit_to_app, color: Colors.red),
-              title: const Text("Cerrar Sesión"),
-              onTap: () async {
-                final prefs = await SharedPreferences.getInstance();
-                await prefs.clear();
-                Navigator.of(context).pushReplacementNamed('/login');
+              contentPadding: const EdgeInsets.symmetric(horizontal: 25),
+              leading: const Icon(
+                Icons.account_circle_outlined,
+                color: customGreen,
+              ),
+              title: const Text(
+                "VOLVER A MI PERFIL",
+                style: TextStyle(
+                  color: customGreen,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 13,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              onTap: () {
+                Navigator.pop(context); // Cierra el Drawer
+                Navigator.pop(context); // Vuelve al perfil
               },
+            ),
+            const Divider(indent: 20, endIndent: 20),
+            const Spacer(),
+            const Padding(
+              padding: EdgeInsets.all(20),
+              child: Text(
+                "PANEL PROFESIONAL v1.0",
+                style: TextStyle(
+                  color: Colors.grey,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
+                ),
+              ),
             ),
           ],
         ),
       ),
-      // EL BODY AHORA SOLO MUESTRA LA VISTA DE ANÁLISIS
       body: isLoadingAnuncios
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator(color: customGreen))
           : AnalisisCarteraView(
               misAnuncios: misAnuncios,
-              primaryColor: _primaryColor,
-              accentColor: _accentColor,
+              primaryColor: customGreen,
             ),
     );
   }
 }
 
-// ---------------- VISTA DE ANÁLISIS (SIN CAMBIOS EN LÓGICA) ----------------
+// ---------------- VISTA DE ANÁLISIS ----------------
 class AnalisisCarteraView extends StatelessWidget {
   final List<Anuncio> misAnuncios;
   final Color primaryColor;
-  final Color accentColor;
 
-  const AnalisisCarteraView({
+  final List<Color> chartColors = [
+    const Color(0xFF2D5248), // Verde principal
+    const Color(0xFF8B7E66), // Tierra
+    const Color(0xFFC2B280), // Arena
+    const Color(0xFF556B2F), // Verde oliva
+    const Color(0xFFA9A9A9), // Gris
+  ];
+
+  AnalisisCarteraView({
     super.key,
     required this.misAnuncios,
     required this.primaryColor,
-    required this.accentColor,
   });
 
   @override
   Widget build(BuildContext context) {
     if (misAnuncios.isEmpty) {
-      return const Center(
-        child: Text("No hay datos suficientes para el análisis"),
+      return Center(
+        child: Text(
+          "No hay datos para analizar",
+          style: TextStyle(color: primaryColor, fontWeight: FontWeight.bold),
+        ),
       );
     }
 
     Map<String, int> conteoTipos = {};
     for (var anuncio in misAnuncios) {
-      String rawTipo = anuncio.tipo.trim();
-      if (rawTipo.isEmpty) rawTipo = "Otros";
-      String tipoKey =
-          rawTipo[0].toUpperCase() + rawTipo.substring(1).toLowerCase();
+      String tipoKey = anuncio.tipo.trim();
+      if (tipoKey.isEmpty) tipoKey = "Otros";
+      tipoKey = tipoKey[0].toUpperCase() + tipoKey.substring(1).toLowerCase();
       conteoTipos[tipoKey] = (conteoTipos[tipoKey] ?? 0) + 1;
     }
 
     var sortedEntries = conteoTipos.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
-    var maxEntry = sortedEntries.first;
-    var minEntry = sortedEntries.last;
-    int totalAnuncios = misAnuncios.length;
-
-    List<PieChartSectionData> sections = sortedEntries.map((entry) {
-      bool isMax = entry.key == maxEntry.key;
-      bool isMin = entry.key == minEntry.key;
-      return PieChartSectionData(
-        color: isMax
-            ? primaryColor
-            : (isMin && sortedEntries.length > 1
-                  ? accentColor
-                  : Colors.grey.shade300),
-        value: entry.value.toDouble(),
-        title: '${((entry.value / totalAnuncios) * 100).toInt()}%',
-        radius: isMax ? 55 : 45,
-        titleStyle: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.bold,
-          color: (isMax || isMin) ? Colors.white : Colors.black54,
-        ),
-      );
-    }).toList();
 
     return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.all(24),
-      child: Column(
-        children: [
-          const Text(
-            "Distribución de Cartera",
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            "Análisis de volumen por tipo de propiedad",
-            style: TextStyle(color: Colors.grey, fontSize: 13),
-          ),
-          const SizedBox(height: 40),
-          SizedBox(
-            height: 200,
-            child: PieChart(
-              PieChartData(
-                sections: sections,
-                centerSpaceRadius: 40,
-                sectionsSpace: 2,
-              ),
-            ),
-          ),
-          const SizedBox(height: 40),
-          _buildExtremosCard(maxEntry, minEntry, sortedEntries),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildExtremosCard(maxEntry, minEntry, List sortedEntries) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            "EXTREMOS DE CARTERA",
+          Text(
+            "Distribución de Cartera",
             style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              color: Colors.grey,
+              fontSize: 22,
+              fontWeight: FontWeight.w900,
+              color: primaryColor,
             ),
           ),
-          const Divider(height: 20),
-          _buildResumenRow(
-            "Mayor Volumen",
-            maxEntry.key,
-            maxEntry.value,
-            primaryColor,
-            Icons.arrow_upward,
-          ),
-          if (sortedEntries.length > 1) ...[
-            const SizedBox(height: 16),
-            _buildResumenRow(
-              "Oportunidad / Escasez",
-              minEntry.key,
-              minEntry.value,
-              accentColor,
-              Icons.star,
+          const SizedBox(height: 30),
+
+          // Gráfico circular
+          Container(
+            height: 250,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.5),
+              borderRadius: BorderRadius.circular(20),
             ),
-          ],
+            child: PieChart(
+              PieChartData(
+                sections: List.generate(sortedEntries.length, (i) {
+                  return PieChartSectionData(
+                    color: chartColors[i % chartColors.length],
+                    value: sortedEntries[i].value.toDouble(),
+                    title: '${sortedEntries[i].value}',
+                    radius: 60,
+                    titleStyle: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  );
+                }),
+                centerSpaceRadius: 45,
+                sectionsSpace: 4,
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 25),
+
+          // Leyenda
+          Center(
+            child: Wrap(
+              spacing: 15,
+              runSpacing: 10,
+              alignment: WrapAlignment.center,
+              children: List.generate(sortedEntries.length, (i) {
+                return Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 12,
+                      height: 12,
+                      decoration: BoxDecoration(
+                        color: chartColors[i % chartColors.length],
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      sortedEntries[i].key,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
+                    ),
+                  ],
+                );
+              }),
+            ),
+          ),
+
+          const SizedBox(height: 40),
+
+          // Tarjeta de resumen
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF7F0E1),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                _buildSimpleRow(
+                  "Total Propiedades",
+                  "${misAnuncios.length}",
+                  primaryColor,
+                  isBold: true,
+                ),
+                const Divider(height: 30, thickness: 1),
+                ...sortedEntries.map(
+                  (e) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: _buildSimpleRow(e.key, "${e.value}", Colors.black87),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildResumenRow(
+  Widget _buildSimpleRow(
     String label,
-    String tipo,
-    int cantidad,
-    Color color,
-    IconData icon,
-  ) {
+    String value,
+    Color color, {
+    bool isBold = false,
+  }) {
     return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(icon, color: color, size: 20),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: const TextStyle(fontSize: 11, color: Colors.grey),
-              ),
-              Text(
-                tipo,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
+        Text(
+          label,
+          style: TextStyle(
+            color: Colors.black87,
+            fontWeight: isBold ? FontWeight.w900 : FontWeight.w500,
+            fontSize: 14,
           ),
         ),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
+        Text(
+          value,
+          style: TextStyle(
             color: color,
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Text(
-            "$cantidad",
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
           ),
         ),
       ],

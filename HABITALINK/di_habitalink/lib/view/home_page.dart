@@ -14,7 +14,7 @@ import 'search_results_page.dart';
 import 'favoritos_page.dart';
 import 'notificaciones_page.dart';
 import 'informe_admin_page.dart';
-import 'agency_dashboard.dart';
+
 import 'profile_page.dart';
 
 class HomePage extends StatefulWidget {
@@ -269,7 +269,6 @@ class _HomePageState extends State<HomePage> {
       300.0,
       screenWidth * (_featuredProperties.length > 1 ? 0.4 : 0.8),
     );
-    // ⬇️ MODIFICADO: Añadido +60 para asegurar espacio para los puntos y evitar cortes
     final cardHeight = (cardWidth * 1.5) + 60;
 
     return Scaffold(
@@ -323,14 +322,7 @@ class _HomePageState extends State<HomePage> {
                           ),
                         ),
                         const SizedBox(width: 10),
-                        if (userRole == 'usuario' && userType == 'profesional')
-                          IconButton(
-                            icon: const Icon(
-                              Icons.chat_bubble_outline,
-                              color: AppColors.primary,
-                            ),
-                            onPressed: () {},
-                          ),
+                        // El icono de mensaje (chat_bubble_outline) ha sido eliminado de aquí
                         if (userRole == 'admin')
                           ElevatedButton.icon(
                             onPressed: () => Navigator.push(
@@ -381,7 +373,6 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ),
                   ),
-                  // ⬇️ MODIFICADO: Añadido async/await y recarga de propiedades
                   _navItem('Anunciar', () async {
                     await Navigator.push(
                       context,
@@ -389,7 +380,7 @@ class _HomePageState extends State<HomePage> {
                         builder: (context) => const NewPropertyCardPage(),
                       ),
                     );
-                    _loadFeaturedProperties(); // Recargar al volver
+                    _loadFeaturedProperties();
                   }),
                   _navItem(
                     'Notificaciones',
@@ -436,71 +427,11 @@ class _HomePageState extends State<HomePage> {
               padding: EdgeInsets.symmetric(horizontal: AppColors.kPadding),
               child: SizedBox(height: 60, child: SearchBarWidget()),
             ),
-            if (userRole == 'usuario' && userType == 'profesional') ...[
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppColors.kPadding,
-                  vertical: 20,
-                ),
-                child: GestureDetector(
-                  onTap: () async {
-                    // ⬇️ MODIFICADO: Añadido async/await y recarga de propiedades
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const AgencyDashboardPage(),
-                      ),
-                    );
-                    _loadFeaturedProperties();
-                  },
-                  child: Container(
-                    height: 120,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          AppColors.primary,
-                          AppColors.primary.withOpacity(0.85),
-                        ],
-                      ),
-                      borderRadius: BorderRadius.circular(24),
-                    ),
-                    child: Row(
-                      children: const [
-                        SizedBox(width: 20),
-                        Icon(
-                          Icons.dashboard_rounded,
-                          size: 48,
-                          color: Colors.white,
-                        ),
-                        SizedBox(width: 20),
-                        Expanded(
-                          child: Text(
-                            'Panel Inmobiliario',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        Icon(
-                          Icons.chevron_right,
-                          color: Colors.white,
-                          size: 32,
-                        ),
-                        SizedBox(width: 20),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
             const SizedBox(height: 40),
             _sectionTitle('Últimas Propiedades'),
             _sectionSubtitle('Descubre las viviendas más recientes añadidas.'),
             const SizedBox(height: 20),
             SizedBox(
-              // Aseguramos espacio vertical extra
               height: cardHeight + 40,
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator())
@@ -552,7 +483,6 @@ class _HomePageState extends State<HomePage> {
     child: Text(_error!, style: const TextStyle(color: Colors.red)),
   );
 
-  // ⬇️ FUNCIÓN PRINCIPAL MODIFICADA CON FLECHAS ⬇️
   Widget _buildCarousel(double cardWidth, double cardHeight) {
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -562,16 +492,13 @@ class _HomePageState extends State<HomePage> {
                   ? 3
                   : (constraints.maxWidth >= 600 ? 2 : 1));
 
-        // Calculamos cuántas páginas hay en total
         final pagesCount =
             (_featuredProperties.length + itemsPerPage - 1) ~/ itemsPerPage;
 
-        // Si no hay propiedades, mostramos mensaje
         if (_featuredProperties.isEmpty) {
           return const Center(child: Text("No hay propiedades disponibles"));
         }
 
-        // Usamos Stack para poner las flechas ENCIMA del carrusel
         return Stack(
           alignment: Alignment.center,
           children: [
@@ -616,13 +543,9 @@ class _HomePageState extends State<HomePage> {
                     },
                   ),
                 ),
-                // Los puntitos de abajo
                 _buildDots(pagesCount),
               ],
             ),
-
-            // --- FLECHA IZQUIERDA ---
-            // Solo se muestra si NO estamos en la primera página
             if (_currentCarouselPage > 0)
               Positioned(
                 left: 20,
@@ -643,9 +566,6 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ),
               ),
-
-            // --- FLECHA DERECHA ---
-            // Solo se muestra si NO estamos en la última página
             if (_currentCarouselPage < pagesCount - 1)
               Positioned(
                 right: 20,
