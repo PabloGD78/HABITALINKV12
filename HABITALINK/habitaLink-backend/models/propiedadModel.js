@@ -206,6 +206,20 @@ class PropiedadModel {
 
         return null; 
     }
+    
 }
+// Función para cambiar estado (Aprobar)
+Propiedad.cambiarEstado = async (id, nuevoEstado) => {
+    const sql = `UPDATE inmueble_anuncio SET estado = ? WHERE id = ?`;
+    const [result] = await db.execute(sql, [nuevoEstado, id]);
+    return result;
+};
+
+// Función para eliminar
+Propiedad.eliminar = async (id) => {
+    const sql = `DELETE FROM inmueble_anuncio WHERE id = ?`;
+    const [result] = await db.execute(sql, [id]);
+    return result;
+};
 
 module.exports = PropiedadModel;

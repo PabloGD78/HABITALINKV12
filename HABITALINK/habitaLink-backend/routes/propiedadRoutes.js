@@ -25,14 +25,9 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 
 // 2. Definir las Rutas (Endpoints)
-
-// Ruta para crear una propiedad (POST) -> ahora aceptamos múltiples archivos en 'imagenes'
 router.post('/crear', upload.array('imagenes', 8), propiedadController.crearPropiedad);
-
-// Ruta para ver todas las propiedades (GET /api/propiedades)
 router.get('/', propiedadController.obtenerPropiedades);
-
-// 🔑 CLAVE: Ruta para obtener una sola propiedad por ID/REF
 router.get('/:id', propiedadController.obtenerPropiedadDetalle);
-
+router.put('/:id/aprobar', propiedadController.aprobarPropiedad); // Ruta para aprobar
+router.delete('/:id', propiedadController.eliminarPropiedad);
 module.exports = router;

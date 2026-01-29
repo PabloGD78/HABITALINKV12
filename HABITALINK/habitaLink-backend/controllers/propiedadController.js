@@ -115,4 +115,66 @@ exports.obtenerPropiedadDetalle = async (req, res) => {
             error: error.message
         });
     }
+    exports.aprobarPropiedad = async (req, res) => {
+    try {
+        const { id } = req.params;
+        
+        // Llamamos al modelo para actualizar el estado
+        // (Asegúrate de añadir este método en tu modelo, ver abajo)
+        const result = await PropiedadModel.cambiarEstado(id, 'publicado');
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Propiedad no encontrada o no se pudo actualizar'
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: 'Propiedad aprobada exitosamente'
+        });
+
+    } catch (error) {
+        console.error('🔥 Error al aprobar propiedad:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Error interno al aprobar propiedad',
+            error: error.message
+        });
+    }
+};
+
+/**
+ * 🗑️ ELIMINAR PROPIEDAD (DELETE /:id)
+ * Borra la propiedad físicamente de la base de datos
+ */
+exports.eliminarPropiedad = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        // Llamamos al modelo para borrar
+        const result = await PropiedadModel.eliminar(id);
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Propiedad no encontrada'
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: 'Propiedad eliminada correctamente'
+        });
+
+    } catch (error) {
+        console.error('🔥 Error al eliminar propiedad:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Error interno al eliminar propiedad',
+            error: error.message
+        });
+    }
+};
 };
