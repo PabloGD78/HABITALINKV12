@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs'); // ✅ NUEVO: Necesario para comprobar si existe la carpeta
 
 const app = express();
 
@@ -9,14 +10,20 @@ app.use(cors());
 app.use(express.json());
 
 // --- Carpeta Pública (Imágenes) ---
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// ✅ MODIFICACIÓN: Aseguramos que la carpeta exista antes de hacerla pública
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir);
+    console.log('📂 Carpeta "uploads" creada automáticamente.');
+}
+app.use('/uploads', express.static(uploadsDir));
 
 // --- Importar Rutas ---
 const propiedadRoutes = require('./routes/propiedadRoutes');
 const authRoutes = require('./routes/authRoutes');
 const favoritosRoutes = require('./routes/favoritosRoutes');
 const adminRoutes = require('./routes/adminRoutes');
-// ✅ NUEVO: Importamos el controlador de estadísticas
+// ✅ Importamos el controlador de estadísticas
 const statsController = require('./controllers/statsController');
 
 // --- Usar Rutas ---
@@ -25,10 +32,10 @@ app.use('/api/auth', authRoutes);
 app.use('/api/favoritos', favoritosRoutes);
 app.use('/api/admin', adminRoutes);
 
-// ✅ NUEVO: Ruta para las gráficas del Dashboard de Inmobiliaria (Líneas)
+// ✅ Ruta para las gráficas del Dashboard de Inmobiliaria (Líneas)
 app.get('/api/stats/agencia/:id_usuario', statsController.getEstadisticasAgencia);
 
-// ✅ NUEVO: Ruta para las gráficas del Dashboard de Admin (Pastel)
+// ✅ Ruta para las gráficas del Dashboard de Admin (Pastel)
 app.get('/api/stats/admin/usuarios', async (req, res) => {
     try {
         const [rows] = await db.execute('SELECT tipo, COUNT(*) as cantidad FROM usuario GROUP BY tipo');
@@ -43,7 +50,7 @@ app.get('/api/stats/admin/usuarios', async (req, res) => {
 const PORT = 3000;
 app.listen(PORT, () => {
     console.log(`🚀 Servidor HabitaLink corriendo en http://localhost:${PORT}`);
-    console.log(`📂 Carpeta de uploads pública activa`);
+    console.log(`📂 Carpeta de uploads pública activa en: /uploads`);
 });
 
 // -- Asegurar tablas y configuración de DB --
@@ -63,7 +70,7 @@ const { v4: uuidv4 } = require('uuid');
         `);
         console.log('Tabla favoritos verificada.');
 
-        // ✅ NUEVO: Asegurar tabla de estadísticas para las gráficas
+        // ✅ Asegurar tabla de estadísticas para las gráficas
         await db.execute(`
             CREATE TABLE IF NOT EXISTS estadisticas_anuncio (
                 id INT AUTO_INCREMENT PRIMARY KEY,

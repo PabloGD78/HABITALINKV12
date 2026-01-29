@@ -1,34 +1,45 @@
-const db = require('../config/db'); // Asegúrate de que la ruta a tu db sea correcta
+const db = require('../config/db'); // Asegúrate de que la ruta a db sea correcta
 
-// ✅ Cambiamos el nombre de la función para que coincida con el require de server.js
 exports.getEstadisticasAgencia = async (req, res) => {
-    const { id_usuario } = req.params; 
+    const { id_usuario } = req.params;
 
     try {
+        // 1. Verificar si el usuario tiene inmuebles
+        // Esta consulta asume que tienes una tabla que vincula inmuebles con usuarios.
+        // Ajustamos para obtener estadísticas agrupadas por fecha de TODOS los anuncios de este usuario.
+        
         const query = `
             SELECT 
-                DATE_FORMAT(e.fecha, '%d/%m') as dia, 
-                SUM(e.visitas) as total_visitas, 
-                SUM(e.contactos) as total_contactos
+                DATE_FORMAT(e.fecha, '%Y-%m-%d') as fecha,
+                SUM(e.visitas) as visitas,
+                SUM(e.contactos) as contactos
             FROM estadisticas_anuncio e
-            JOIN inmueble_anuncio i ON e.id_inmueble = i.id  -- 👈 Cambiado: id_inmueble en lugar de id_anuncio
-            WHERE i.id_usuario = ? 
-              AND e.fecha >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+            JOIN inmueble_anuncio ia ON e.id_inmueble = ia.id
+            JOIN propiedad p ON ia.id_propiedad = p.id
+            WHERE p.id_usuario = ?
             GROUP BY e.fecha
-            ORDER BY e.fecha ASC;
+            ORDER BY e.fecha ASC
+            LIMIT 30;
         `;
 
-        const [rows] = await db.execute(query, [id_usuario]); // Usamos .execute para mayor seguridad
-        
-        res.json({ 
-            success: true, 
-            data: rows 
-        });
+        const [rows] = await db.execute(query, [id_usuario]);
+
+        // Si no hay datos, devolvemos un array vacío pero con éxito
+        if (rows.length === 0) {
+            return res.json({ 
+                success: true, 
+                data: [],
+                message: "No hay estadísticas disponibles aún" 
+            });
+        }
+
+        res.json({ success: true, data: rows });
+
     } catch (error) {
-        console.error("❌ Error en SQL Stats:", error);
+        console.error("Error obteniendo estadísticas:", error);
         res.status(500).json({ 
             success: false, 
-            message: "Error al obtener estadísticas de inmuebles" 
+            message: "Error en el servidor al cargar estadísticas" 
         });
     }
 };

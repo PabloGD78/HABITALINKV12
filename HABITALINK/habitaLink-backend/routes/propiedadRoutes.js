@@ -5,7 +5,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
-// 1. Configurar dónde se guardan las fotos (Storage)
+// --- 1. CONFIGURACIÓN DE IMÁGENES (MULTER) ---
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
         const uploadPath = 'uploads/';
@@ -24,15 +24,18 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage });
 
-// 2. Definir las Rutas (Endpoints)
+// --- 2. DEFINICIÓN DE RUTAS ---
 
-// Ruta para crear una propiedad (POST) -> ahora aceptamos múltiples archivos en 'imagenes'
+// A) Crear una propiedad (POST) -> Acepta hasta 8 imágenes
 router.post('/crear', upload.array('imagenes', 8), propiedadController.crearPropiedad);
 
-// Ruta para ver todas las propiedades (GET /api/propiedades)
+// B) Ver TODAS las propiedades (Para el buscador general)
 router.get('/', propiedadController.obtenerPropiedades);
 
-// 🔑 CLAVE: Ruta para obtener una sola propiedad por ID/REF
+// ✅ C) NUEVO: Ver SOLO las propiedades de un usuario específico (Para el Dashboard)
+router.get('/usuario/:id_usuario', propiedadController.obtenerMisAnuncios);
+
+// D) Ver detalle de una propiedad por ID (Para la pantalla de detalle)
 router.get('/:id', propiedadController.obtenerPropiedadDetalle);
 
 module.exports = router;

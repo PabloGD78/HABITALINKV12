@@ -1,11 +1,12 @@
 const PropiedadModel = require('../models/propiedadModel');
+const db = require('../config/db'); // ✅ NECESARIO para la consulta directa
 
 /**
- * CREAR PROPIEDAD (POST)
+ * 1. CREAR PROPIEDAD (POST)
  */
 exports.crearPropiedad = async (req, res) => {
     try {
-        // Obtener múltiples imágenes si existen
+        // Procesar imágenes subidas
         const imagenesUrls = [];
         if (req.files && Array.isArray(req.files) && req.files.length > 0) {
             req.files.forEach(f => {
@@ -13,18 +14,13 @@ exports.crearPropiedad = async (req, res) => {
             });
         }
 
-        // 3️⃣ Preparar datos para el modelo
-        const latitude = req.body.latitude ? Number(req.body.latitude) : 0.0;
-        const longitude = req.body.longitude ? Number(req.body.longitude) : 0.0;
-        
-        // 🔍 DEBUG: Mostrar coordenadas recibidas
-        console.log('📍 Coordenadas recibidas en crear propiedad:', {
-            latitude,
-            longitude,
-            ubicacion: req.body.ubicacion,
+        console.log('📍 Coordenadas recibidas:', {
+            lat: req.body.latitude,
+            lon: req.body.longitude,
             titulo: req.body.titulo,
         });
         
+        // Preparar objeto para el modelo
         const nuevaPropiedad = {
             id_usuario: req.body.id_usuario,
             titulo: req.body.titulo || '',
@@ -35,18 +31,13 @@ exports.crearPropiedad = async (req, res) => {
             superficie: Number(req.body.superficie) || 0,
             tipo: req.body.tipo || '',
             ubicacion: req.body.ubicacion || 'Sevilla',
-            
-            // ✅ NUEVO: Capturamos las coordenadas enviadas desde Flutter
-            // Las convertimos a Number para asegurar que MySQL las reciba como decimales
-            latitude: latitude,
-            longitude: longitude,
-            
+            // Aseguramos que sean números para MySQL
+            latitude: req.body.latitude ? Number(req.body.latitude) : 0.0,
+            longitude: req.body.longitude ? Number(req.body.longitude) : 0.0,
             caracteristicas: req.body.caracteristicas ? req.body.caracteristicas : null,
             imagenes: imagenesUrls,
         };
 
-        // 4️⃣ Guardar en la base de datos
-        // IMPORTANTE: Asegúrate de que PropiedadModel.crear use estos nuevos campos
         const propiedadId = await PropiedadModel.crear(nuevaPropiedad);
 
         return res.status(201).json({
@@ -59,14 +50,14 @@ exports.crearPropiedad = async (req, res) => {
         console.error('🔥 Error al crear propiedad:', error);
         return res.status(500).json({
             success: false,
-            message: 'Error interno del servidor al crear propiedad',
+            message: 'Error interno al crear propiedad',
             error: error.message,
         });
     }
 };
 
 /**
- * OBTENER TODAS LAS PROPIEDADES (GET /)
+ * 2. OBTENER TODAS LAS PROPIEDADES (Para el Feed)
  */
 exports.obtenerPropiedades = async (req, res) => {
     try {
@@ -80,25 +71,24 @@ exports.obtenerPropiedades = async (req, res) => {
         console.error('🔥 Error al obtener propiedades:', error);
         return res.status(500).json({
             success: false,
-            message: 'Error interno del servidor al obtener propiedades',
+            message: 'Error interno',
             error: error.message
         });
     }
 };
 
 /**
- * 🔑 OBTENER DETALLES DE UNA SOLA PROPIEDAD (GET /:id)
+ * 3. OBTENER DETALLE DE UNA PROPIEDAD
  */
 exports.obtenerPropiedadDetalle = async (req, res) => {
     try {
         const propertyId = req.params.id; 
-        
         const propiedad = await PropiedadModel.obtenerPorId(propertyId);
         
         if (!propiedad) {
             return res.status(404).json({
                 success: false,
-                message: `Property with ref ${propertyId} not found.`, 
+                message: `Propiedad con id ${propertyId} no encontrada.`, 
             });
         }
 
@@ -108,11 +98,62 @@ exports.obtenerPropiedadDetalle = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('🔥 Error al obtener detalles de propiedad:', error);
+        console.error('🔥 Error al obtener detalle:', error);
         return res.status(500).json({
             success: false,
-            message: 'Error interno del servidor al obtener detalles',
+            message: 'Error interno',
             error: error.message
         });
+    }
+};
+
+/**
+ * ✅ 4. NUEVO: OBTENER PROPIEDADES DE UN USUARIO (Para tu Dashboard)
+ * Esta función busca en la base de datos filtrando por ID de usuario.
+ */
+exports.obtenerMisAnuncios = async (req, res) => {
+    try {
+        const { id_usuario } = req.params;
+
+        // CONSULTA SQL DIRECTA:
+        // Asegúrate de que tu tabla se llame 'inmueble_anuncio' o 'propiedades'.
+        // Si usas el mismo nombre que en tu modelo, probablemente sea 'inmueble_anuncio'.
+        const [rows] = await db.execute(
+            `SELECT * FROM inmueble_anuncio WHERE id_usuario = ? ORDER BY id DESC`, 
+            [id_usuario]
+        );
+
+        // Procesamos las imágenes para enviar una URL limpia al frontend
+        const dataProcesada = rows.map(item => {
+            let imagenPrincipal = ''; // Imagen por defecto si no hay
+            
+            try {
+                // Caso 1: La imagen viene como un string JSON '["ruta1", "ruta2"]'
+                if (item.imagenes && (item.imagenes.startsWith('[') || item.imagenes.startsWith('{'))) {
+                    const imgs = JSON.parse(item.imagenes);
+                    if (Array.isArray(imgs) && imgs.length > 0) {
+                        imagenPrincipal = imgs[0];
+                    }
+                } 
+                // Caso 2: Ya es texto plano
+                else if (item.imagenes) {
+                    imagenPrincipal = item.imagenes;
+                }
+            } catch (e) {
+                // Si falla el parseo, usamos el valor tal cual
+                imagenPrincipal = item.imagenes;
+            }
+
+            return {
+                ...item,
+                imagenPrincipal: imagenPrincipal // Campo simplificado para el Flutter
+            };
+        });
+
+        res.json({ success: true, data: dataProcesada });
+
+    } catch (error) {
+        console.error("🔥 Error obteniendo mis anuncios:", error);
+        res.status(500).json({ success: false, message: "Error al cargar tus anuncios" });
     }
 };

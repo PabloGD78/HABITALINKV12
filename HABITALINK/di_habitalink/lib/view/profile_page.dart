@@ -1,9 +1,46 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+// Asegúrate de que estas rutas sean correctas en tu proyecto
 import '../theme/colors.dart';
 import 'particular_dashboard.dart';
 import 'professional_dashboard.dart';
 
+// --- MODELO DE DATOS ---
+class AnuncioPerfil {
+  final String titulo;
+  final String precio;
+  final String estado;
+  final String imagenUrl;
+
+  AnuncioPerfil({
+    required this.titulo,
+    required this.precio,
+    required this.estado,
+    required this.imagenUrl,
+  });
+
+  factory AnuncioPerfil.fromJson(Map<String, dynamic> json) {
+    String img = json['imagenPrincipal'] ?? '';
+    // Manejo robusto de imágenes (por si viene como string de array)
+    if (img.startsWith('[')) {
+      try {
+        List<dynamic> imgs = jsonDecode(img);
+        if (imgs.isNotEmpty) img = imgs[0];
+      } catch (_) {}
+    }
+
+    return AnuncioPerfil(
+      titulo: json['nombre'] ?? 'Sin título',
+      precio: json['precio'] != null ? "${json['precio']} €" : "0 €",
+      estado: json['estado'] ?? 'Desconocido',
+      imagenUrl: img,
+    );
+  }
+}
+
+// --- PÁGINA PRINCIPAL DE PERFIL ---
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
 
@@ -14,12 +51,18 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   final Color _backgroundColor = const Color(0xFFF3E5CD);
 
+  // Datos del usuario
   String? userName;
   String? userEmail;
   String? userPassword;
   String? userType;
+  String? idUsuario;
+
   bool _isLoading = true;
   bool _showPassword = false;
+
+  // Lista de anuncios
+  List<AnuncioPerfil> misAnuncios = [];
 
   @override
   void initState() {
@@ -28,22 +71,61 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _loadUserData() async {
-    await Future.delayed(const Duration(milliseconds: 300));
     final prefs = await SharedPreferences.getInstance();
 
-    setState(() {
-      userName = prefs.getString('userName') ?? 'Usuario';
-      userEmail = prefs.getString('userEmail') ?? 'Correo no disponible';
-      userPassword = prefs.getString('userPassword') ?? '';
-      userType = prefs.getString('tipo')?.toLowerCase();
-      _isLoading = false;
-    });
+    String? id1 = prefs.getString('idUsuario');
+    String? id2 = prefs.getString('userId');
+    String? id3 = prefs.getString('id');
+
+    idUsuario = id1 ?? id2 ?? id3;
+
+    userName = prefs.getString('userName') ?? 'Usuario';
+    userEmail = prefs.getString('userEmail') ?? 'Correo no disponible';
+    userPassword = prefs.getString('userPassword') ?? '';
+    userType = prefs.getString('tipo')?.toLowerCase();
+
+    if (idUsuario != null && idUsuario!.isNotEmpty) {
+      await _fetchUserProperties(idUsuario!);
+    }
+
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _fetchUserProperties(String userId) async {
+    try {
+      final url = Uri.parse(
+        'http://localhost:3000/api/propiedades/usuario/$userId',
+      );
+      final response = await http.get(url);
+
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        List<dynamic> listaBruta = [];
+
+        if (decoded is List) {
+          listaBruta = decoded;
+        } else if (decoded is Map && decoded['data'] != null) {
+          listaBruta = decoded['data'];
+        }
+
+        setState(() {
+          misAnuncios = listaBruta
+              .map((json) => AnuncioPerfil.fromJson(json))
+              .toList();
+        });
+      }
+    } catch (e) {
+      print("Error fetching user properties: $e");
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     bool isProfesional = userType == 'profesional';
-    bool isParticular = userType == 'particular';
     final screenWidth = MediaQuery.of(context).size.width;
     bool isDesktop = screenWidth > 900;
 
@@ -54,7 +136,7 @@ class _ProfilePageState extends State<ProfilePage> {
           'Ajustes de Perfil',
           style: TextStyle(
             fontWeight: FontWeight.w800,
-            fontSize: 22,
+            fontSize: 20, // Texto un poco más chico
             letterSpacing: -0.5,
           ),
         ),
@@ -62,11 +144,10 @@ class _ProfilePageState extends State<ProfilePage> {
         foregroundColor: AppColors.primary,
         elevation: 0,
         centerTitle: false,
-        toolbarHeight: 80,
         leading: Padding(
           padding: const EdgeInsets.only(left: 10),
           child: IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new, size: 22),
+            icon: const Icon(Icons.arrow_back_ios_new, size: 20),
             onPressed: () => Navigator.pop(context),
           ),
         ),
@@ -81,7 +162,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 child: Container(
                   constraints: const BoxConstraints(maxWidth: 1200),
                   padding: EdgeInsets.symmetric(
-                    vertical: isDesktop ? 40 : 20,
+                    vertical: isDesktop ? 30 : 16,
                     horizontal: isDesktop ? 40 : 16,
                   ),
                   child: isDesktop
@@ -89,29 +170,23 @@ class _ProfilePageState extends State<ProfilePage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             SizedBox(
-                              width: 380,
+                              width: 350, // Columna izquierda más estrecha
                               child: Column(
                                 children: [
-                                  _buildIdentityCard(
-                                    isProfesional,
-                                    isParticular,
-                                  ),
-                                  const SizedBox(height: 24),
+                                  _buildIdentityCard(isProfesional),
+                                  const SizedBox(height: 20),
                                   _buildAccountDetailsCard(),
                                 ],
                               ),
                             ),
-                            const SizedBox(width: 40),
+                            const SizedBox(width: 30),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   _buildTopBanner(isProfesional),
-                                  const SizedBox(height: 48),
-                                  _buildPropertiesSection(
-                                    context,
-                                    isParticular,
-                                  ), // PASAMOS LA VARIABLE AQUI
+                                  const SizedBox(height: 30),
+                                  _buildUserPropertiesSection(),
                                 ],
                               ),
                             ),
@@ -119,16 +194,14 @@ class _ProfilePageState extends State<ProfilePage> {
                         )
                       : Column(
                           children: [
-                            _buildIdentityCard(isProfesional, isParticular),
-                            const SizedBox(height: 24),
+                            _buildIdentityCard(isProfesional),
+                            const SizedBox(height: 20),
                             _buildTopBanner(isProfesional),
-                            const SizedBox(height: 24),
+                            const SizedBox(height: 20),
                             _buildAccountDetailsCard(),
-                            const SizedBox(height: 32),
-                            _buildPropertiesSection(
-                              context,
-                              isParticular,
-                            ), // PASAMOS LA VARIABLE AQUI
+                            const SizedBox(height: 30),
+                            _buildUserPropertiesSection(),
+                            const SizedBox(height: 40),
                           ],
                         ),
                 ),
@@ -137,10 +210,10 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  Widget _buildIdentityCard(bool isProfesional, bool isParticular) {
-    String badgeText = isProfesional
-        ? 'PROFESIONAL'
-        : (isParticular ? 'PARTICULAR' : 'USUARIO');
+  // --- WIDGETS DE UI ---
+
+  Widget _buildIdentityCard(bool isProfesional) {
+    String badgeText = isProfesional ? 'PROFESIONAL' : 'PARTICULAR';
     Color badgeColor = isProfesional
         ? AppColors.primary
         : const Color(0xFFD97706);
@@ -148,44 +221,46 @@ class _ProfilePageState extends State<ProfilePage> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.04),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
           ),
         ],
       ),
       child: Column(
         children: [
           Container(
-            height: 110,
+            height: 90, // Altura reducida
             decoration: const BoxDecoration(
               gradient: LinearGradient(
                 colors: [AppColors.primary, Color(0xFF3D6158)],
               ),
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
             ),
             child: Stack(
               alignment: Alignment.center,
               clipBehavior: Clip.none,
               children: [
                 Positioned(
-                  bottom: -45,
+                  bottom: -40,
                   child: Container(
-                    padding: const EdgeInsets.all(4),
+                    padding: const EdgeInsets.all(3),
                     decoration: const BoxDecoration(
                       color: Colors.white,
                       shape: BoxShape.circle,
                     ),
                     child: CircleAvatar(
-                      radius: 46,
+                      radius: 40, // Avatar más pequeño
                       backgroundColor: _backgroundColor,
                       child: Text(
-                        userName != null ? userName![0].toUpperCase() : 'U',
+                        userName != null && userName!.isNotEmpty
+                            ? userName![0].toUpperCase()
+                            : 'U',
                         style: const TextStyle(
-                          fontSize: 38,
+                          fontSize: 32,
                           fontWeight: FontWeight.w900,
                           color: AppColors.primary,
                         ),
@@ -196,34 +271,34 @@ class _ProfilePageState extends State<ProfilePage> {
               ],
             ),
           ),
-          const SizedBox(height: 55),
+          const SizedBox(height: 50),
           Text(
             userName ?? '',
             style: const TextStyle(
-              fontSize: 22,
+              fontSize: 18,
               fontWeight: FontWeight.w800,
               color: Color(0xFF1F2937),
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
               color: badgeColor.withOpacity(0.08),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(8),
               border: Border.all(color: badgeColor.withOpacity(0.2)),
             ),
             child: Text(
               badgeText,
               style: TextStyle(
                 color: badgeColor,
-                fontSize: 11,
+                fontSize: 10,
                 fontWeight: FontWeight.w900,
                 letterSpacing: 0.5,
               ),
             ),
           ),
-          const SizedBox(height: 25),
+          const SizedBox(height: 20),
         ],
       ),
     );
@@ -231,15 +306,15 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Widget _buildAccountDetailsCard() {
     return Container(
-      padding: const EdgeInsets.all(28),
+      padding: const EdgeInsets.all(20), // Padding reducido
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.03),
-            blurRadius: 15,
-            offset: const Offset(0, 8),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
           ),
         ],
       ),
@@ -250,15 +325,15 @@ class _ProfilePageState extends State<ProfilePage> {
             'Datos Personales',
             style: TextStyle(
               fontWeight: FontWeight.w800,
-              fontSize: 18,
+              fontSize: 16,
               color: Color(0xFF1F2937),
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 15),
           _buildInfoRow('Nombre completo', userName ?? ''),
-          const Divider(height: 32, thickness: 1, color: Color(0xFFF3F4F6)),
+          const Divider(height: 24, thickness: 1, color: Color(0xFFF3F4F6)),
           _buildInfoRow('Correo electrónico', userEmail ?? ''),
-          const Divider(height: 32, thickness: 1, color: Color(0xFFF3F4F6)),
+          const Divider(height: 24, thickness: 1, color: Color(0xFFF3F4F6)),
           _buildPasswordRow(),
         ],
       ),
@@ -268,16 +343,9 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget _buildTopBanner(bool isProfesional) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(35),
+      padding: const EdgeInsets.all(24), // Menos padding
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(28),
-        image: const DecorationImage(
-          image: NetworkImage(
-            "https://www.transparenttextures.com/patterns/carbon-fibre.png",
-          ),
-          opacity: 0.1,
-          repeat: ImageRepeat.repeat,
-        ),
+        borderRadius: BorderRadius.circular(20),
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -288,19 +356,19 @@ class _ProfilePageState extends State<ProfilePage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            "Análisis y Métricas en Tiempo Real",
+            "Panel de Control",
             style: TextStyle(
               color: Colors.white,
-              fontSize: 22,
+              fontSize: 18,
               fontWeight: FontWeight.w800,
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           const Text(
-            "Optimiza tus ventas revisando el rendimiento de tus publicaciones.",
-            style: TextStyle(color: Colors.white70, fontSize: 15, height: 1.4),
+            "Gestiona y analiza tus publicaciones.",
+            style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
           ),
-          const SizedBox(height: 30),
+          const SizedBox(height: 20),
           ElevatedButton(
             onPressed: () {
               Navigator.push(
@@ -317,13 +385,13 @@ class _ProfilePageState extends State<ProfilePage> {
               foregroundColor: AppColors.primary,
               elevation: 0,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(12),
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 18),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             ),
             child: const Text(
-              "Acceder a mi panel de control",
-              style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
+              "Ir a mi Panel de Control",
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
             ),
           ),
         ],
@@ -331,8 +399,27 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  // --- MODIFICADO: Acepta isParticular para pasarlo al botón ---
-  Widget _buildPropertiesSection(BuildContext context, bool isParticular) {
+  Widget _buildUserPropertiesSection() {
+    if (misAnuncios.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(30),
+        alignment: Alignment.center,
+        child: Column(
+          children: const [
+            Icon(Icons.folder_open, size: 40, color: Colors.grey),
+            SizedBox(height: 12),
+            Text(
+              "No tienes anuncios publicados.",
+              style: TextStyle(color: Colors.grey, fontSize: 14),
+            ),
+          ],
+        ),
+      );
+    }
+
+    int itemCount = misAnuncios.length > 2 ? 2 : misAnuncios.length;
+    bool showSeeAllButton = misAnuncios.length > 2;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -342,103 +429,201 @@ class _ProfilePageState extends State<ProfilePage> {
             const Text(
               "Mis anuncios",
               style: TextStyle(
-                fontSize: 24,
+                fontSize: 20,
                 fontWeight: FontWeight.w900,
                 color: Color(0xFF111827),
               ),
             ),
-            TextButton.icon(
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  // AQUI PASAMOS EL DATO PARA QUE LA SIGUIENTE PANTALLA SEPA QUÉ MOSTRAR
-                  builder: (context) =>
-                      AllAdsScreen(isParticular: isParticular),
-                ),
-              ),
-              icon: const Text(
-                "Ver todos",
-                style: TextStyle(
-                  color: AppColors.primary,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 16,
-                ),
-              ),
-              label: const Icon(
-                Icons.arrow_forward,
-                size: 18,
-                color: AppColors.primary,
+            Text(
+              "${misAnuncios.length} total",
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey.shade600,
               ),
             ),
           ],
         ),
-        const SizedBox(height: 24),
-        // GridView de vista previa (se mantiene igual)
+        const SizedBox(height: 16),
         GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 2,
-            crossAxisSpacing: 24,
-            mainAxisSpacing: 24,
-            childAspectRatio: 1.4,
+            crossAxisSpacing: 16,
+            mainAxisSpacing: 16,
+            // AQUI ESTA LA CLAVE PARA HACERLO "CHICO":
+            // Un valor más alto hace la tarjeta más ancha y baja.
+            // 0.85 es vertical (estilo móvil), 1.2 es casi cuadrado.
+            // Usamos 0.9 para un balance compacto.
+            childAspectRatio: 0.9,
           ),
-          itemCount: 2,
+          itemCount: itemCount,
           itemBuilder: (context, index) {
-            return Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(22),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-                image: const DecorationImage(
-                  image: NetworkImage(
-                    'https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=500',
-                  ),
-                  fit: BoxFit.cover,
-                ),
-              ),
-              child: Container(
-                alignment: Alignment.bottomLeft,
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(22),
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.transparent,
-                      Colors.black.withOpacity(0.85),
-                    ],
-                  ),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Text(
-                      "Piso de Lujo en Centro",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 16,
-                      ),
-                    ),
-                    Text(
-                      "Activo • 24 visitas hoy",
-                      style: TextStyle(color: Colors.white70, fontSize: 12),
-                    ),
-                  ],
-                ),
-              ),
-            );
+            return _buildAnuncioCard(misAnuncios[index]);
           },
         ),
+        if (showSeeAllButton) ...[
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            height: 45,
+            child: OutlinedButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => AllAdsPage(allAnuncios: misAnuncios),
+                  ),
+                );
+              },
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.primary,
+                side: const BorderSide(color: AppColors.primary, width: 1.5),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              child: const Text(
+                "Ver todos",
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+              ),
+            ),
+          ),
+        ],
       ],
+    );
+  }
+
+  // TARJETA COMPACTA Y OPTIMIZADA
+  Widget _buildAnuncioCard(AnuncioPerfil anuncio) {
+    Color colorEstado = anuncio.estado == 'Activo'
+        ? Colors.green.shade100
+        : Colors.red.shade100;
+    Color textoEstado = anuncio.estado == 'Activo'
+        ? Colors.green.shade900
+        : Colors.red.shade900;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // IMAGEN MÁS CHICA
+          Expanded(
+            flex: 3,
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(12),
+                ),
+                color: Colors.grey.shade100,
+                image: anuncio.imagenUrl.isNotEmpty
+                    ? DecorationImage(
+                        image: NetworkImage(anuncio.imagenUrl),
+                        fit: BoxFit.cover,
+                      )
+                    : null,
+              ),
+              child: anuncio.imagenUrl.isEmpty
+                  ? const Center(
+                      child: Icon(
+                        Icons.image_not_supported,
+                        color: Colors.grey,
+                        size: 20,
+                      ),
+                    )
+                  : null,
+            ),
+          ),
+          // CONTENIDO COMPACTO
+          Expanded(
+            flex: 4,
+            child: Padding(
+              padding: const EdgeInsets.all(10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        anuncio.titulo,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                          height: 1.1,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        anuncio.precio,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 14,
+                          color: Color(0xFF6B7280),
+                        ),
+                      ),
+                    ],
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: colorEstado,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          anuncio.estado,
+                          style: TextStyle(
+                            color: textoEstado,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      // Botón Mini
+                      InkWell(
+                        onTap: () {},
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.edit,
+                            size: 14,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -450,16 +635,16 @@ class _ProfilePageState extends State<ProfilePage> {
           label,
           style: const TextStyle(
             color: Color(0xFF6B7280),
-            fontSize: 13,
+            fontSize: 12,
             fontWeight: FontWeight.w600,
           ),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 4),
         Text(
           value,
           style: const TextStyle(
             fontWeight: FontWeight.w700,
-            fontSize: 16,
+            fontSize: 14,
             color: Color(0xFF374151),
           ),
         ),
@@ -478,14 +663,14 @@ class _ProfilePageState extends State<ProfilePage> {
               'Contraseña',
               style: TextStyle(
                 color: Color(0xFF6B7280),
-                fontSize: 13,
+                fontSize: 12,
                 fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 4),
             Text(
               _showPassword ? userPassword! : '••••••••',
-              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
             ),
           ],
         ),
@@ -494,7 +679,7 @@ class _ProfilePageState extends State<ProfilePage> {
           icon: Icon(
             _showPassword ? Icons.visibility_off : Icons.visibility,
             color: const Color(0xFF9CA3AF),
-            size: 22,
+            size: 20,
           ),
         ),
       ],
@@ -502,338 +687,144 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 }
 
-// -------------------------------------------------------------------------
-// PANTALLA DE TODOS LOS ANUNCIOS (MODIFICADA)
-// -------------------------------------------------------------------------
+// --- PANTALLA SECUNDARIA: VER TODOS (OPTIMIZADA) ---
+class AllAdsPage extends StatelessWidget {
+  final List<AnuncioPerfil> allAnuncios;
 
-class AllAdsScreen extends StatelessWidget {
-  final bool isParticular;
-
-  // Aceptamos el parámetro para saber qué vista mostrar
-  const AllAdsScreen({super.key, this.isParticular = false});
+  const AllAdsPage({super.key, required this.allAnuncios});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor:
-          Colors.white, // O un gris muy claro para contrastar tarjetas
+      backgroundColor: const Color(0xFFF3E5CD),
       appBar: AppBar(
         title: const Text(
-          "Mis anuncios",
+          "Todos mis anuncios",
           style: TextStyle(
-            fontWeight: FontWeight.w900,
-            color: Color(0xFF111827),
+            fontWeight: FontWeight.bold,
+            color: AppColors.primary,
+            fontSize: 18,
           ),
         ),
-        backgroundColor: Colors.white,
+        centerTitle: true,
+        backgroundColor: Colors.transparent,
         elevation: 0,
-        iconTheme: const IconThemeData(color: AppColors.primary),
+        leading: const BackButton(color: AppColors.primary),
       ),
-      // AQUI ESTA LA LOGICA: Si es particular mostramos la lista detallada, si no, la lista simple
-      body: isParticular ? _buildParticularView() : _buildProfessionalView(),
-    );
-  }
-
-  // --- VISTA PARA PARTICULARES (Estilo Tarjeta Detallada) ---
-  Widget _buildParticularView() {
-    // Datos de ejemplo simulando diferentes estados
-    final List<Map<String, String>> misAnunciosParticular = [
-      {
-        "titulo": "Ático con terraza centro",
-        "precio": "250.000 €",
-        "estado": "Activo",
-        "imagen":
-            "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=500",
-      },
-      {
-        "titulo": "Piso reformado 3 hab",
-        "precio": "180.000 €",
-        "estado": "Caduca pronto",
-        "imagen":
-            "https://images.unsplash.com/photo-1493809842364-78817add7ffb?w=500",
-      },
-      {
-        "titulo": "Garaje zona norte",
-        "precio": "15.000 €",
-        "estado": "Caducado",
-        "imagen":
-            "https://images.unsplash.com/photo-1580587771525-78b9dba3b91d?w=500",
-      },
-    ];
-
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: misAnunciosParticular.length,
-      itemBuilder: (context, index) {
-        final anuncio = misAnunciosParticular[index];
-        return TarjetaAnuncioParticular(
-          titulo: anuncio["titulo"]!,
-          precio: anuncio["precio"]!,
-          estado: anuncio["estado"]!,
-          imagenUrl: anuncio["imagen"]!,
-        );
-      },
-    );
-  }
-
-  // --- VISTA PARA PROFESIONALES (La lista simple que ya tenías) ---
-  Widget _buildProfessionalView() {
-    return ListView.separated(
-      padding: const EdgeInsets.all(24),
-      itemCount: 8,
-      separatorBuilder: (_, __) => const SizedBox(height: 16),
-      itemBuilder: (context, index) {
-        return Container(
-          decoration: BoxDecoration(
-            color: const Color(0xFFF9FAFB),
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: const Color(0xFFE5E7EB)),
+      body: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: GridView.builder(
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.only(bottom: 20),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            // Aspect Ratio 0.8: Tarjetas verticales compactas
+            childAspectRatio: 0.8,
           ),
-          child: ListTile(
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 20,
-              vertical: 10,
-            ),
-            leading: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: const Icon(
-                Icons.home_work_rounded,
-                color: AppColors.primary,
-              ),
-            ),
-            title: Text(
-              "Ref: #4829${index + 1}",
-              style: const TextStyle(fontWeight: FontWeight.w800),
-            ),
-            subtitle: const Text("Piso • 3 Dormitorios • 125m²"),
-            trailing: const Icon(
-              Icons.chevron_right_rounded,
-              color: Color(0xFF9CA3AF),
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-// -------------------------------------------------------------------------
-// NUEVO WIDGET: DISEÑO TARJETA PARTICULAR (Con foto, precio, estado y botones)
-// -------------------------------------------------------------------------
-class TarjetaAnuncioParticular extends StatelessWidget {
-  final String titulo;
-  final String precio;
-  final String estado; // "Activo", "Caduca pronto", "Caducado"
-  final String imagenUrl;
-
-  const TarjetaAnuncioParticular({
-    super.key,
-    required this.titulo,
-    required this.precio,
-    required this.estado,
-    required this.imagenUrl,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    Color colorEstado;
-    Color colorTextoEstado;
-    String textoBoton = "Editar";
-    IconData iconoBoton = Icons.edit;
-    Color colorBoton = AppColors.primary; // Color por defecto (editar)
-
-    // Lógica de colores según el estado
-    if (estado == "Caduca pronto") {
-      colorEstado = Colors.orange.shade100;
-      colorTextoEstado = Colors.orange.shade900;
-      textoBoton = "Renovar";
-      iconoBoton = Icons.refresh;
-      colorBoton = Colors.orange;
-    } else if (estado == "Caducado") {
-      colorEstado = Colors.red.shade100;
-      colorTextoEstado = Colors.red.shade900;
-      textoBoton = "Renovar";
-      iconoBoton = Icons.refresh;
-      colorBoton = Colors.red;
-    } else {
-      // Activo
-      colorEstado = Colors.green.shade100;
-      colorTextoEstado = Colors.green.shade900;
-    }
-
-    return Card(
-      elevation: 0,
-      margin: const EdgeInsets.only(bottom: 20),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: Colors.grey.shade200),
+          itemCount: allAnuncios.length,
+          itemBuilder: (context, index) {
+            return _buildCompactGridCard(allAnuncios[index]);
+          },
+        ),
       ),
-      color: Colors.white,
+    );
+  }
+
+  Widget _buildCompactGridCard(AnuncioPerfil anuncio) {
+    Color colorEstado = anuncio.estado == 'Activo'
+        ? Colors.green.shade100
+        : Colors.red.shade100;
+    Color textoEstado = anuncio.estado == 'Activo'
+        ? Colors.green.shade900
+        : Colors.red.shade900;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.hardEdge,
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 1. Imagen a la izquierda
-              Container(
-                width: 110,
-                height: 110,
-                margin: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  image: DecorationImage(
-                    image: NetworkImage(imagenUrl),
-                    fit: BoxFit.cover,
-                  ),
-                ),
-              ),
-              // 2. Información a la derecha
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.only(
-                    top: 14.0,
-                    right: 14.0,
-                    bottom: 0,
-                  ),
-                  child: Column(
+          Expanded(
+            flex: 3,
+            child: Container(
+              color: Colors.grey.shade100,
+              child: anuncio.imagenUrl.isNotEmpty
+                  ? Image.network(anuncio.imagenUrl, fit: BoxFit.cover)
+                  : const Center(
+                      child: Icon(Icons.image, color: Colors.black12, size: 30),
+                    ),
+            ),
+          ),
+          Expanded(
+            flex: 2,
+            child: Padding(
+              padding: const EdgeInsets.all(10.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        titulo,
-                        maxLines: 2,
+                        anuncio.titulo,
+                        maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 16,
-                          height: 1.2,
-                          color: Color(0xFF1F2937),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                          height: 1.1,
                         ),
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 4),
                       Text(
-                        precio,
+                        anuncio.precio,
                         style: const TextStyle(
-                          color: AppColors.primary,
                           fontWeight: FontWeight.w800,
-                          fontSize: 18,
+                          fontSize: 13,
+                          color: AppColors.primary,
                         ),
-                      ),
-                      const SizedBox(height: 10),
-                      // Estadísticas (Vistas y Chats)
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.remove_red_eye_rounded,
-                            size: 16,
-                            color: Colors.grey.shade500,
-                          ),
-                          Text(
-                            " 145  ",
-                            style: TextStyle(
-                              color: Colors.grey.shade600,
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          Icon(
-                            Icons.chat_bubble_rounded,
-                            size: 16,
-                            color: Colors.grey.shade500,
-                          ),
-                          Text(
-                            " 3",
-                            style: TextStyle(
-                              color: Colors.grey.shade600,
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
                       ),
                     ],
                   ),
-                ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: colorEstado,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          anuncio.estado,
+                          style: TextStyle(
+                            color: textoEstado,
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      const Icon(Icons.edit, size: 14, color: Colors.grey),
+                    ],
+                  ),
+                ],
               ),
-            ],
-          ),
-
-          const Divider(height: 1, indent: 12, endIndent: 12),
-
-          // 3. Parte inferior: Estado y Botones
-          Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16.0,
-              vertical: 12.0,
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                // Chip de Estado
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: colorEstado,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    estado,
-                    style: TextStyle(
-                      color: colorTextoEstado,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-
-                // Botón de Acción
-                if (estado != "Activo")
-                  SizedBox(
-                    height: 36,
-                    child: ElevatedButton.icon(
-                      onPressed: () {},
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: colorBoton,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                      ),
-                      icon: Icon(iconoBoton, color: Colors.white, size: 16),
-                      label: Text(
-                        textoBoton,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ),
-                  )
-                else
-                  TextButton.icon(
-                    onPressed: () {},
-                    icon: const Icon(
-                      Icons.edit,
-                      size: 18,
-                      color: AppColors.primary,
-                    ),
-                    label: const Text(
-                      "Editar",
-                      style: TextStyle(
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-              ],
             ),
           ),
         ],

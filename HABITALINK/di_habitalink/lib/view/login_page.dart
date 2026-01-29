@@ -103,43 +103,51 @@ class _LoginFormState extends State<_LoginForm> {
       return;
     }
 
-    final result = await _authService.login(
-      correo: _emailController.text.trim(),
-      contrasenia: _passwordController.text,
-    );
-
-    if (result['success'] == true) {
-      final prefs = await SharedPreferences.getInstance();
-      final userData = result['user'];
-
-      // --- CAMBIOS PARA PERFIL DINÁMICO ---
-
-      // 1. Guardamos el Email
-      await prefs.setString('userEmail', _emailController.text.trim());
-
-      // 2. Guardamos la Contraseña (¡NUEVO!)
-      await prefs.setString('userPassword', _passwordController.text);
-
-      // ------------------------------------
-
-      await prefs.setString('userName', userData['nombre'] ?? 'Usuario');
-      await prefs.setString('rol', userData['rol']?.toLowerCase() ?? 'usuario');
-      await prefs.setString(
-        'tipo',
-        userData['tipo']?.toLowerCase() ?? 'particular',
+    try {
+      final result = await _authService.login(
+        correo: _emailController.text.trim(),
+        contrasenia: _passwordController.text,
       );
-      await prefs.setString('userId', userData['id']?.toString() ?? '');
 
-      if (!mounted) return;
-      _showMessageDialog("Bienvenido, ${userData['nombre']}", true);
+      if (result['success'] == true) {
+        final prefs = await SharedPreferences.getInstance();
+        final userData = result['user'];
 
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (context) => const HomePage()),
-        (route) => false,
-      );
-    } else {
-      _showMessageDialog(result['message'] ?? 'Error de credenciales', false);
+        // --- GUARDAR DATOS DEL USUARIO ---
+        await prefs.setString('userEmail', _emailController.text.trim());
+        await prefs.setString('userPassword', _passwordController.text);
+        await prefs.setString('userName', userData['nombre'] ?? 'Usuario');
+        await prefs.setString(
+          'rol',
+          userData['rol']?.toLowerCase() ?? 'usuario',
+        );
+        await prefs.setString(
+          'tipo',
+          userData['tipo']?.toLowerCase() ?? 'particular',
+        );
+
+        // ⚠️ CRÍTICO: Guardar ID correcto
+        final String userId = userData['id']?.toString() ?? '';
+        await prefs.setString('idUsuario', userId);
+
+        // --- DEBUG ---
+        print("✅ LOGIN ÉXITO - idUsuario guardado = $userId");
+        print("✅ ROL: ${userData['rol']} | TIPO: ${userData['tipo']}");
+
+        if (!mounted) return;
+        _showMessageDialog("Bienvenido, ${userData['nombre']}", true);
+
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => const HomePage()),
+          (route) => false,
+        );
+      } else {
+        _showMessageDialog(result['message'] ?? 'Error de credenciales', false);
+      }
+    } catch (e) {
+      print("Error en login: $e");
+      _showMessageDialog("Error de conexión con el servidor", false);
     }
   }
 
