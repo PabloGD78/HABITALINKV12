@@ -1,19 +1,16 @@
 import 'package:flutter/material.dart';
-import 'dart:math' as math;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../theme/colors.dart';
 import '../widgets/search_bar_widget.dart';
-import '../widgets/property_card.dart'; // ✅ Usamos la única y nueva PropertyCard
+import '../widgets/property_card.dart';
 import '../widgets/footer_widget.dart';
 import '../services/property_service.dart';
 import '../models/property_model.dart';
 import 'property/property_detail_page.dart';
 import 'property/new_property_card_page.dart';
-
 import 'search_results_page.dart';
 import 'favoritos_page.dart';
 import 'notificaciones_page.dart';
-import 'informe_admin_page.dart'; // Si lo tienes
 import 'agency_dashboard.dart';
 
 class HomePage extends StatefulWidget {
@@ -86,8 +83,6 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    // Ya no necesitamos calcular cardWidth/Height para pasarlo al widget,
-    // pero lo mantenemos para saber cuántos items mostrar por página.
     final screenWidth = MediaQuery.of(context).size.width;
 
     return Scaffold(
@@ -96,6 +91,7 @@ class _HomePageState extends State<HomePage> {
         preferredSize: const Size.fromHeight(160),
         child: Column(
           children: [
+            // --- LOGO Y SESIÓN ---
             Padding(
               padding: const EdgeInsets.symmetric(
                 horizontal: AppColors.kPadding,
@@ -112,141 +108,20 @@ class _HomePageState extends State<HomePage> {
                     ),
                   ),
                   const Spacer(),
-                  if (userName == null)
-                    ElevatedButton(
-                      onPressed: () => Navigator.pushNamed(context, '/login'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.accent,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(30),
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                      ),
-                      child: const Text(
-                        'Iniciar sesión',
-                        style: TextStyle(
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    )
-                  else
-                    Row(
-                      children: [
-                        Text(
-                          'Hola, $userName',
-                          style: const TextStyle(
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        if (userRole == 'usuario' &&
-                            userType == 'profesional') ...[
-                          IconButton(
-                            icon: const Icon(
-                              Icons.chat_bubble_outline,
-                              color: AppColors.primary,
-                            ),
-                            onPressed: () {},
-                            tooltip: 'Mensajes',
-                          ),
-                          const SizedBox(width: 4),
-                          ElevatedButton.icon(
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      const AgencyDashboardPage(),
-                                ),
-                              );
-                            },
-                            icon: const Icon(
-                              Icons.dashboard_customize,
-                              size: 18,
-                              color: AppColors.primary,
-                            ),
-                            label: const Text(
-                              'Mi Panel',
-                              style: TextStyle(color: AppColors.primary),
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.accent,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                        ],
-                        PopupMenuButton(
-                          onSelected: (value) {
-                            if (value == 'logout') _logout();
-                          },
-                          itemBuilder: (context) => const [
-                            PopupMenuItem(
-                              value: 'logout',
-                              child: Text('Cerrar sesión'),
-                            ),
-                          ],
-                          child: const CircleAvatar(
-                            radius: 25,
-                            backgroundColor: AppColors.primary,
-                            child: Icon(Icons.person, color: Colors.white),
-                          ),
-                        ),
-                      ],
-                    ),
+                  _buildSessionAction(),
                 ],
               ),
             ),
+            // --- BARRA NAVEGACIÓN AZUL (CORREGIDA) ---
             Container(
               color: AppColors.primary,
-              height: 40,
+              height: 45,
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _navItem(
-                    'Comprar',
-                    () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const SearchResultsPage(),
-                      ),
-                    ),
-                  ),
-                  _navItem(
-                    'Anunciar',
-                    () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const NewPropertyCardPage(),
-                      ),
-                    ),
-                  ),
-                  _navItem(
-                    'Notificaciones',
-                    () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const NotificationsPage(),
-                      ),
-                    ),
-                  ),
-                  _navItem(
-                    'Favoritos',
-                    () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const FavoritosPage(),
-                      ),
-                    ),
-                  ),
+                  _navItem('Comprar', () => Navigator.push(context, MaterialPageRoute(builder: (context) => const SearchResultsPage()))),
+                  _navItem('Anunciar', () => Navigator.push(context, MaterialPageRoute(builder: (context) => const NewPropertyCardPage()))),
+                  _navItem('Notificaciones', () => Navigator.push(context, MaterialPageRoute(builder: (context) => const NotificationsPage()))),
+                  _navItem('Favoritos', () => Navigator.push(context, MaterialPageRoute(builder: (context) => const FavoritosPage()))),
                 ],
               ),
             ),
@@ -258,111 +133,20 @@ class _HomePageState extends State<HomePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Center(
-              child: Padding(
-                padding: EdgeInsets.symmetric(
-                  horizontal: AppColors.kPadding,
-                ),
-                child: Text(
-                  'Conecta con tu espacio ideal',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.primary,
-                  ),
-                ),
-              ),
-            ),
+            _buildHeroText(),
             const SizedBox(height: 30),
             const Padding(
-              padding: EdgeInsets.symmetric(
-                horizontal: AppColors.kPadding,
-              ),
+              padding: EdgeInsets.symmetric(horizontal: AppColors.kPadding),
               child: SizedBox(height: 60, child: SearchBarWidget()),
             ),
-            if (userRole == 'usuario' && userType == 'profesional') ...[
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppColors.kPadding,
-                  vertical: 20,
-                ),
-                child: GestureDetector(
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const AgencyDashboardPage(),
-                    ),
-                  ),
-                  child: Container(
-                    height: 120,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          AppColors.primary,
-                          AppColors.primary.withOpacity(0.85),
-                        ],
-                      ),
-                      borderRadius: BorderRadius.circular(24),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.15),
-                          blurRadius: 12,
-                          offset: const Offset(0, 6),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      children: const [
-                        SizedBox(width: 20),
-                        Icon(
-                          Icons.dashboard_rounded,
-                          size: 48,
-                          color: Colors.white,
-                        ),
-                        SizedBox(width: 20),
-                        Expanded(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Panel Inmobiliario',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              SizedBox(height: 6),
-                              Text(
-                                'Consulta visitas, contactos y rendimiento',
-                                style: TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Icon(
-                          Icons.chevron_right,
-                          color: Colors.white,
-                          size: 32,
-                        ),
-                        SizedBox(width: 20),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
+            if (userRole == 'usuario' && userType == 'profesional') _buildAgencyBanner(),
             const SizedBox(height: 40),
             _sectionTitle('Últimas Propiedades'),
-            _sectionSubtitle('Descubre las viviendas más recientes añadidas.'),
+            _sectionSubtitle('Descubre las viviendas más recientes.'),
             const SizedBox(height: 20),
+            // --- CARRUSEL CON ALTURA CORREGIDA ---
             SizedBox(
-              height: 180, // Ajuste fijo para la card compacta
+              height: 280, 
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : _error != null
@@ -379,16 +163,87 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _navItem(String label, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
+  // --- WIDGETS DE APOYO ---
+
+  Widget _buildHeroText() {
+    return const Center(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10),
+        padding: EdgeInsets.symmetric(horizontal: AppColors.kPadding),
         child: Text(
-          label,
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
+          'Conecta con tu espacio ideal',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 32, fontWeight: FontWeight.w600, color: AppColors.primary),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSessionAction() {
+    if (userName == null) {
+      return ElevatedButton(
+        onPressed: () => Navigator.pushNamed(context, '/login'),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppColors.accent,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+        ),
+        child: const Text('Iniciar sesión', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
+      );
+    }
+    return Row(
+      children: [
+        Text('Hola, $userName', style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
+        const SizedBox(width: 8),
+        PopupMenuButton(
+          onSelected: (value) => value == 'logout' ? _logout() : null,
+          itemBuilder: (context) => [const PopupMenuItem(value: 'logout', child: Text('Cerrar sesión'))],
+          child: const CircleAvatar(
+            radius: 20,
+            backgroundColor: AppColors.primary,
+            child: Icon(Icons.person, color: Colors.white, size: 20),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // MÉTODO NAV ITEM CORREGIDO PARA EVITAR OVERFLOW
+  Widget _navItem(String label, VoidCallback onTap) {
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          alignment: Alignment.center,
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              label,
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAgencyBanner() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppColors.kPadding, vertical: 20),
+      child: GestureDetector(
+        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AgencyDashboardPage())),
+        child: Container(
+          height: 100,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(colors: [AppColors.primary, AppColors.primary.withOpacity(0.8)]),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: const Center(
+            child: ListTile(
+              leading: Icon(Icons.dashboard_rounded, size: 40, color: Colors.white),
+              title: Text('Panel Inmobiliario', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              subtitle: Text('Gestiona tus propiedades aquí', style: TextStyle(color: Colors.white70)),
+              trailing: Icon(Icons.chevron_right, color: Colors.white),
+            ),
           ),
         ),
       ),
@@ -397,46 +252,21 @@ class _HomePageState extends State<HomePage> {
 
   Widget _sectionTitle(String title) => Padding(
         padding: const EdgeInsets.symmetric(horizontal: AppColors.kPadding),
-        child: Text(
-          title,
-          style: const TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: AppColors.primary,
-          ),
-        ),
+        child: Text(title, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.primary)),
       );
+
   Widget _sectionSubtitle(String subtitle) => Padding(
         padding: const EdgeInsets.symmetric(horizontal: AppColors.kPadding),
-        child: Text(
-          subtitle,
-          style: const TextStyle(fontSize: 18, color: Colors.grey),
-        ),
+        child: Text(subtitle, style: const TextStyle(fontSize: 16, color: Colors.grey)),
       );
 
-  Widget _buildErrorWidget() => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(AppColors.kPadding),
-          child: Text(
-            _error!,
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: Colors.red, fontSize: 16),
-          ),
-        ),
-      );
+  Widget _buildErrorWidget() => Center(child: Text(_error!, style: const TextStyle(color: Colors.red)));
 
-  // ✅ CORREGIDO: Usamos PropertyCard con isCompact: true
   Widget _buildCarousel(double screenWidth) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Cálculo de items por página
-        int itemsPerPage = constraints.maxWidth >= 1200
-            ? 4
-            : (constraints.maxWidth >= 900
-                ? 3
-                : (constraints.maxWidth >= 600 ? 2 : 1));
-        final pagesCount =
-            (_featuredProperties.length + itemsPerPage - 1) ~/ itemsPerPage;
+        int itemsPerPage = constraints.maxWidth >= 1200 ? 4 : (constraints.maxWidth >= 900 ? 3 : (constraints.maxWidth >= 600 ? 2 : 1));
+        final pagesCount = (_featuredProperties.length + itemsPerPage - 1) ~/ itemsPerPage;
 
         return Column(
           children: [
@@ -447,62 +277,38 @@ class _HomePageState extends State<HomePage> {
                   PageView.builder(
                     controller: _carouselController,
                     itemCount: pagesCount,
-                    onPageChanged: (p) =>
-                        setState(() => _currentCarouselPage = p),
+                    onPageChanged: (p) => setState(() => _currentCarouselPage = p),
                     itemBuilder: (context, pageIndex) {
                       final start = pageIndex * itemsPerPage;
-                      final end = (start + itemsPerPage) <
-                              _featuredProperties.length
-                          ? (start + itemsPerPage)
-                          : _featuredProperties.length;
+                      final end = (start + itemsPerPage) < _featuredProperties.length ? (start + itemsPerPage) : _featuredProperties.length;
                       final chunk = _featuredProperties.sublist(start, end);
-                      
+
                       return Row(
                         mainAxisAlignment: MainAxisAlignment.center,
-                        children: chunk
-                            .map(
-                              (property) => Expanded(
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                                  child: PropertyCard(
-                                    property: property,
-                                    isCompact: true, // ✅ Estilo Home
-                                    onDetailsPressed: () => Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => PropertyDetailPage(
-                                          propertyRef: property.id,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
+                        children: chunk.map((property) => Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                            child: PropertyCard(
+                              property: property,
+                              isCompact: true,
+                              onDetailsPressed: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (context) => PropertyDetailPage(propertyRef: property.id)),
                               ),
-                            )
-                            .toList(),
+                            ),
+                          ),
+                        )).toList(),
                       );
                     },
                   ),
                   if (pagesCount > 1) ...[
-                    Positioned(
-                      left: 0,
-                      child: IconButton(
-                        icon: const Icon(Icons.chevron_left, size: 36),
-                        onPressed: () => _moveCarousel(-1, pagesCount),
-                      ),
-                    ),
-                    Positioned(
-                      right: 0,
-                      child: IconButton(
-                        icon: const Icon(Icons.chevron_right, size: 36),
-                        onPressed: () => _moveCarousel(1, pagesCount),
-                      ),
-                    ),
+                    Positioned(left: 0, child: IconButton(icon: const Icon(Icons.chevron_left, size: 30), onPressed: () => _moveCarousel(-1, pagesCount))),
+                    Positioned(right: 0, child: IconButton(icon: const Icon(Icons.chevron_right, size: 30), onPressed: () => _moveCarousel(1, pagesCount))),
                   ],
                 ],
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             _buildDots(pagesCount),
           ],
         );
@@ -513,11 +319,7 @@ class _HomePageState extends State<HomePage> {
   void _moveCarousel(int direction, int pagesCount) {
     int next = (_currentCarouselPage + direction) % pagesCount;
     if (next < 0) next = pagesCount - 1;
-    _carouselController.animateToPage(
-      next,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-    );
+    _carouselController.animateToPage(next, duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
   }
 
   Widget _buildDots(int count) {
@@ -528,12 +330,9 @@ class _HomePageState extends State<HomePage> {
         return AnimatedContainer(
           duration: const Duration(milliseconds: 250),
           margin: const EdgeInsets.symmetric(horizontal: 4),
-          width: active ? 14 : 8,
+          width: active ? 12 : 8,
           height: 8,
-          decoration: BoxDecoration(
-            color: active ? AppColors.primary : Colors.grey[400],
-            borderRadius: BorderRadius.circular(4),
-          ),
+          decoration: BoxDecoration(color: active ? AppColors.primary : Colors.grey[400], borderRadius: BorderRadius.circular(4)),
         );
       }),
     );

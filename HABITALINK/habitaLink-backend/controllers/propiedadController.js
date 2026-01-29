@@ -115,66 +115,39 @@ exports.obtenerPropiedadDetalle = async (req, res) => {
             error: error.message
         });
     }
-    exports.aprobarPropiedad = async (req, res) => {
+
+};
+    // ✅ ESTA ES LA FUNCIÓN QUE FALTA O ESTÁ MAL ESCRITA
+exports.aprobarPropiedad = async (req, res) => {
     try {
         const { id } = req.params;
+        // Llamamos al método estático que arreglamos antes en el modelo
+        const resultado = await PropiedadModel.cambiarEstado(id, 'Aprobado');
         
-        // Llamamos al modelo para actualizar el estado
-        // (Asegúrate de añadir este método en tu modelo, ver abajo)
-        const result = await PropiedadModel.cambiarEstado(id, 'publicado');
-
-        if (result.affectedRows === 0) {
-            return res.status(404).json({
-                success: false,
-                message: 'Propiedad no encontrada o no se pudo actualizar'
-            });
+        if (resultado.affectedRows === 0) {
+            return res.status(404).json({ message: "No se encontró la propiedad" });
         }
 
-        return res.status(200).json({
-            success: true,
-            message: 'Propiedad aprobada exitosamente'
-        });
-
+        res.json({ message: "Propiedad aprobada correctamente" });
     } catch (error) {
-        console.error('🔥 Error al aprobar propiedad:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Error interno al aprobar propiedad',
-            error: error.message
-        });
+        console.error("Error en aprobarPropiedad:", error);
+        res.status(500).json({ error: "Error interno del servidor al aprobar" });
     }
 };
 
-/**
- * 🗑️ ELIMINAR PROPIEDAD (DELETE /:id)
- * Borra la propiedad físicamente de la base de datos
- */
+// ✅ APROVECHAMOS PARA ASEGURAR EL ELIMINAR
 exports.eliminarPropiedad = async (req, res) => {
     try {
         const { id } = req.params;
-
-        // Llamamos al modelo para borrar
-        const result = await PropiedadModel.eliminar(id);
-
-        if (result.affectedRows === 0) {
-            return res.status(404).json({
-                success: false,
-                message: 'Propiedad no encontrada'
-            });
+        const resultado = await PropiedadModel.eliminar(id);
+        
+        if (resultado.affectedRows === 0) {
+            return res.status(404).json({ message: "No se encontró la propiedad para eliminar" });
         }
-
-        return res.status(200).json({
-            success: true,
-            message: 'Propiedad eliminada correctamente'
-        });
-
+        
+        res.json({ message: "Propiedad eliminada con éxito" });
     } catch (error) {
-        console.error('🔥 Error al eliminar propiedad:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Error interno al eliminar propiedad',
-            error: error.message
-        });
+        console.error("Error en eliminarPropiedad:", error);
+        res.status(500).json({ error: "Error interno del servidor al eliminar" });
     }
-};
 };

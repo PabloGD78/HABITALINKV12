@@ -16,7 +16,7 @@ const propiedadRoutes = require('./routes/propiedadRoutes');
 const authRoutes = require('./routes/authRoutes');
 const favoritosRoutes = require('./routes/favoritosRoutes');
 const adminRoutes = require('./routes/adminRoutes');
-
+const adminController = require('./controllers/adminController');
 // --- Importar Controlador de Estadísticas ---
 const statsController = require('./controllers/statsController');
 
@@ -25,13 +25,15 @@ app.use('/api/propiedades', propiedadRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/favoritos', favoritosRoutes);
 app.use('/api/admin', adminRoutes);
-
 // --- Rutas de Estadísticas ---
-// Gráfica de líneas (Agencia)
-app.get('/api/stats/agencia/:id_usuario', statsController.getEstadisticasAgencia);
-// Gráfica de pastel (Admin)
-app.get('/api/stats/admin/usuarios', statsController.getEstadisticasAdmin);
+// Cámbiala de '/api/stats/admin/usuarios' a solo '/api/stats/admin'
+app.get('/api/stats/admin', statsController.getEstadisticasAdmin);
 
+// La de agencia se queda igual si así la llamas desde el panel de agencia
+app.get('/api/stats/agencia/:id_usuario', statsController.getEstadisticasAgencia);
+
+// Añade esto para que la URL directa funcione
+app.get('/api/properties', adminController.getAllProperties);
 // --- Ruta Base (Mensaje de bienvenida) ---
 app.get('/', (req, res) => {
     res.send('¡Hola! El servidor backend de HabitaLink está funcionando correctamente.');

@@ -32,7 +32,7 @@ class MyApp extends StatelessWidget {
     
     if (userLoggedIn) {
       if (userRole == 'admin') {
-        initialRoute = '/admin_dashboard'; // Si es admin, al panel
+        initialRoute = '/admin_dashboard_screen'; // Si es admin, al panel
       } else {
         initialRoute = '/'; // Si es normal, a la Home
       }

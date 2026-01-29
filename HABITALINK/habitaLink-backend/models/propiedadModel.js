@@ -208,18 +208,44 @@ class PropiedadModel {
     }
     
 }
-// Función para cambiar estado (Aprobar)
-Propiedad.cambiarEstado = async (id, nuevoEstado) => {
+PropiedadModel.cambiarEstado = async (id, nuevoEstado) => {
     const sql = `UPDATE inmueble_anuncio SET estado = ? WHERE id = ?`;
     const [result] = await db.execute(sql, [nuevoEstado, id]);
     return result;
 };
 
-// Función para eliminar
-Propiedad.eliminar = async (id) => {
+// ✅ CORRECCIÓN: Usa PropiedadModel en lugar de Propiedad
+PropiedadModel.eliminar = async (id) => {
     const sql = `DELETE FROM inmueble_anuncio WHERE id = ?`;
     const [result] = await db.execute(sql, [id]);
     return result;
 };
+// ✅ AÑADE O CORRIGE ESTA FUNCIÓN
+exports.aprobarPropiedad = async (req, res) => {
+    try {
+        const { id } = req.params;
+        // Llamamos al método que definimos en el modelo antes
+        const resultado = await PropiedadModel.cambiarEstado(id, 'Aprobado');
+        
+        if (resultado.affectedRows === 0) {
+            return res.status(404).json({ message: "Propiedad no encontrada" });
+        }
 
+        res.json({ message: "Propiedad aprobada correctamente" });
+    } catch (error) {
+        console.error("Error en aprobarPropiedad:", error);
+        res.status(500).json({ error: "Error interno del servidor" });
+    }
+};
+
+// ✅ REVISA TAMBIÉN LA DE ELIMINAR (por si acaso)
+exports.eliminarPropiedad = async (req, res) => {
+    try {
+        const { id } = req.params;
+        await PropiedadModel.eliminar(id);
+        res.json({ message: "Propiedad eliminada" });
+    } catch (error) {
+        res.status(500).json({ error: "Error al eliminar" });
+    }
+};
 module.exports = PropiedadModel;

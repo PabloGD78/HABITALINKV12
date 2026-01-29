@@ -28,6 +28,10 @@ const upload = multer({ storage: storage });
 router.post('/crear', upload.array('imagenes', 8), propiedadController.crearPropiedad);
 router.get('/', propiedadController.obtenerPropiedades);
 router.get('/:id', propiedadController.obtenerPropiedadDetalle);
-router.put('/:id/aprobar', propiedadController.aprobarPropiedad); // Ruta para aprobar
+
+// ✅ REVISADO: Asegúrate de que 'aprobarPropiedad' esté exportado en el controlador
+router.put('/:id/aprobar', propiedadController.aprobarPropiedad); 
+
 router.delete('/:id', propiedadController.eliminarPropiedad);
+
 module.exports = router;

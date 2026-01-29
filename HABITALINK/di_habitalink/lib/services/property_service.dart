@@ -4,114 +4,69 @@ import 'package:flutter/foundation.dart';
 import '../models/property_model.dart';
 
 const String _baseUrl = 'http://localhost:3000';
-const String apiUrl = '$_baseUrl/api/propiedades';
+// Asegúrate de que esta URL sea la que funciona en el navegador
+const String apiUrl = '$_baseUrl/api/properties'; 
 
 class PropertyService {
-  // ---------------------------------------------------------------------------
+  
   // 1. OBTENER DETALLE DE UNA SOLA PROPIEDAD
-  // ---------------------------------------------------------------------------
   Future<Property> obtenerPropiedadDetalle(String propertyId) async {
     final url = Uri.parse('$apiUrl/$propertyId');
 
-    if (kDebugMode) {
-      print('🚀 Solicitando detalle de propiedad en: $url');
-    }
-
     try {
       final response = await http.get(url);
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> jsonResponse = json.decode(response.body);
 
-        if (jsonResponse['success'] == true &&
-            jsonResponse.containsKey('propiedad')) {
-          final Map<String, dynamic> propertyJson = jsonResponse['propiedad'];
-          return Property.fromJson(propertyJson);
-        } else {
-          throw Exception(
-            'Error: Respuesta exitosa pero formato de datos inesperado.',
-          );
+        // Cambiado a 'property' para coincidir con el backend
+        if (jsonResponse['success'] == true && jsonResponse.containsKey('property')) {
+          return Property.fromJson(jsonResponse['property']);
         }
-      } else if (response.statusCode == 404) {
-        throw Exception(
-          'Error 404: Propiedad no encontrada con ID: $propertyId.',
-        );
-      } else {
-        throw Exception(
-          'Error al cargar detalle de propiedad. Status Code: ${response.statusCode}',
-        );
-      }
+        throw Exception('Formato de datos de propiedad inesperado.');
+      } 
+      throw Exception('Error de servidor: ${response.statusCode}');
     } catch (e) {
-      if (kDebugMode) {
-        print('❌ Error en obtenerPropiedadDetalle: $e');
-      }
-      throw Exception(
-        'Fallo al obtener detalle de propiedad. Revise la conexión. Detalles: $e',
-      );
+      throw Exception('Fallo al obtener detalle: $e');
     }
   }
 
-  // ---------------------------------------------------------------------------
   // 2. OBTENER TODAS LAS PROPIEDADES
-  // ---------------------------------------------------------------------------
   Future<List<PropertySummary>> obtenerTodas() async {
     final url = Uri.parse(apiUrl);
 
-    if (kDebugMode) {
-      print('🚀 Solicitando lista de propiedades en: $url');
-    }
-
     try {
       final response = await http.get(url);
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> jsonResponse = json.decode(response.body);
 
-        if (jsonResponse['success'] == true &&
-            jsonResponse.containsKey('propiedades')) {
-          final List<dynamic> propertiesList = jsonResponse['propiedades'];
+        // Cambiado a 'properties' para coincidir con tu JSON
+        if (jsonResponse['success'] == true && jsonResponse.containsKey('properties')) {
+          final List<dynamic> propertiesList = jsonResponse['properties'];
           return propertiesList
               .map((jsonItem) => PropertySummary.fromJson(jsonItem))
               .toList();
-        } else {
-          throw Exception(
-            'Error: Respuesta exitosa pero lista de propiedades no encontrada.',
-          );
         }
-      } else {
-        throw Exception(
-          'Error al cargar propiedades. Status Code: ${response.statusCode}',
-        );
-      }
+        throw Exception('La llave "properties" no existe en la respuesta.');
+      } 
+      throw Exception('Error al cargar propiedades: ${response.statusCode}');
     } catch (e) {
-      if (kDebugMode) {
-        print('❌ Error en obtenerTodas: $e');
-      }
-      throw Exception(
-        'Fallo al obtener la lista de propiedades. Revise la conexión. Detalles: $e',
-      );
+      throw Exception('Error de conexión: $e');
     }
+    // Al añadir los "throw" dentro de los bloques, Dart ya sabe que 
+    // nunca se devolverá un null por error.
   }
 
-  // ---------------------------------------------------------------------------
-  // 3. OBTENER PROPIEDADES POR TIPO (para similares)
-  // ---------------------------------------------------------------------------
+  // 3. OBTENER PROPIEDADES POR TIPO
   Future<List<PropertySummary>> obtenerPropiedadesPorTipo(String tipo) async {
     try {
-      // Primero obtenemos todas las propiedades
       final allProperties = await obtenerTodas();
-
-      // Filtramos por tipo
-      final filtered = allProperties.where((prop) {
+      return allProperties.where((prop) {
         return prop.type.toLowerCase() == tipo.toLowerCase();
       }).toList();
-
-      return filtered;
     } catch (e) {
-      if (kDebugMode) {
-        print('❌ Error en obtenerPropiedadesPorTipo: $e');
-      }
-      throw Exception('Fallo al obtener propiedades por tipo. Detalles: $e');
+      throw Exception('Fallo al filtrar por tipo: $e');
     }
   }
 }
