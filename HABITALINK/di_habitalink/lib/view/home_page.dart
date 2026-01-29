@@ -3,7 +3,7 @@ import 'dart:math' as math;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../theme/colors.dart';
 import '../widgets/search_bar_widget.dart';
-import '../widgets/property_card.dart';
+import '../widgets/property_card.dart'; // ✅ Usamos la única y nueva PropertyCard
 import '../widgets/footer_widget.dart';
 import '../services/property_service.dart';
 import '../models/property_model.dart';
@@ -13,7 +13,7 @@ import 'property/new_property_card_page.dart';
 import 'search_results_page.dart';
 import 'favoritos_page.dart';
 import 'notificaciones_page.dart';
-import 'informe_admin_page.dart';
+import 'informe_admin_page.dart'; // Si lo tienes
 import 'agency_dashboard.dart';
 
 class HomePage extends StatefulWidget {
@@ -25,8 +25,8 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   String? userName;
-  String? userRole; // admin / usuario
-  String? userType; // profesional / particular
+  String? userRole;
+  String? userType;
   final PropertyService _propertyService = PropertyService();
 
   List<PropertySummary> _featuredProperties = [];
@@ -55,7 +55,6 @@ class _HomePageState extends State<HomePage> {
       userName = prefs.getString('userName');
       userRole = prefs.getString('rol')?.toLowerCase();
       userType = prefs.getString('tipo')?.toLowerCase();
-      print('DEBUG: userRole = $userRole, userType = $userType');
     });
   }
 
@@ -87,12 +86,9 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    // Ya no necesitamos calcular cardWidth/Height para pasarlo al widget,
+    // pero lo mantenemos para saber cuántos items mostrar por página.
     final screenWidth = MediaQuery.of(context).size.width;
-    final cardWidth = math.min(
-      300.0,
-      screenWidth * (_featuredProperties.length > 1 ? 0.4 : 0.8),
-    );
-    final cardHeight = cardWidth * 1.5;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -149,8 +145,6 @@ class _HomePageState extends State<HomePage> {
                           ),
                         ),
                         const SizedBox(width: 10),
-
-                        // ✅ Chat y Panel profesional
                         if (userRole == 'usuario' &&
                             userType == 'profesional') ...[
                           IconButton(
@@ -158,9 +152,7 @@ class _HomePageState extends State<HomePage> {
                               Icons.chat_bubble_outline,
                               color: AppColors.primary,
                             ),
-                            onPressed: () {
-                              // Acción chat
-                            },
+                            onPressed: () {},
                             tooltip: 'Mensajes',
                           ),
                           const SizedBox(width: 4),
@@ -192,10 +184,6 @@ class _HomePageState extends State<HomePage> {
                           ),
                           const SizedBox(width: 8),
                         ],
-
-                        // ✅ Botón admin
-                        
-
                         PopupMenuButton(
                           onSelected: (value) {
                             if (value == 'logout') _logout();
@@ -217,7 +205,6 @@ class _HomePageState extends State<HomePage> {
                 ],
               ),
             ),
-            // Barra de navegación azul
             Container(
               color: AppColors.primary,
               height: 40,
@@ -271,12 +258,12 @@ class _HomePageState extends State<HomePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Center(
+            const Center(
               child: Padding(
-                padding: const EdgeInsets.symmetric(
+                padding: EdgeInsets.symmetric(
                   horizontal: AppColors.kPadding,
                 ),
-                child: const Text(
+                child: Text(
                   'Conecta con tu espacio ideal',
                   textAlign: TextAlign.center,
                   style: TextStyle(
@@ -288,11 +275,11 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
             const SizedBox(height: 30),
-            Padding(
-              padding: const EdgeInsets.symmetric(
+            const Padding(
+              padding: EdgeInsets.symmetric(
                 horizontal: AppColors.kPadding,
               ),
-              child: SizedBox(height: 60, child: const SearchBarWidget()),
+              child: SizedBox(height: 60, child: SearchBarWidget()),
             ),
             if (userRole == 'usuario' && userType == 'profesional') ...[
               Padding(
@@ -375,14 +362,14 @@ class _HomePageState extends State<HomePage> {
             _sectionSubtitle('Descubre las viviendas más recientes añadidas.'),
             const SizedBox(height: 20),
             SizedBox(
-              height: cardHeight + 40,
+              height: 180, // Ajuste fijo para la card compacta
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : _error != null
-                  ? _buildErrorWidget()
-                  : _featuredProperties.isEmpty
-                  ? const Center(child: Text('No hay propiedades disponibles.'))
-                  : _buildCarousel(cardWidth, cardHeight),
+                      ? _buildErrorWidget()
+                      : _featuredProperties.isEmpty
+                          ? const Center(child: Text('No hay propiedades.'))
+                          : _buildCarousel(screenWidth),
             ),
             const SizedBox(height: 40),
           ],
@@ -409,43 +396,45 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _sectionTitle(String title) => Padding(
-    padding: const EdgeInsets.symmetric(horizontal: AppColors.kPadding),
-    child: Text(
-      title,
-      style: const TextStyle(
-        fontSize: 24,
-        fontWeight: FontWeight.bold,
-        color: AppColors.primary,
-      ),
-    ),
-  );
+        padding: const EdgeInsets.symmetric(horizontal: AppColors.kPadding),
+        child: Text(
+          title,
+          style: const TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: AppColors.primary,
+          ),
+        ),
+      );
   Widget _sectionSubtitle(String subtitle) => Padding(
-    padding: const EdgeInsets.symmetric(horizontal: AppColors.kPadding),
-    child: Text(
-      subtitle,
-      style: const TextStyle(fontSize: 18, color: Colors.grey),
-    ),
-  );
+        padding: const EdgeInsets.symmetric(horizontal: AppColors.kPadding),
+        child: Text(
+          subtitle,
+          style: const TextStyle(fontSize: 18, color: Colors.grey),
+        ),
+      );
 
   Widget _buildErrorWidget() => Center(
-    child: Padding(
-      padding: const EdgeInsets.all(AppColors.kPadding),
-      child: Text(
-        _error!,
-        textAlign: TextAlign.center,
-        style: const TextStyle(color: Colors.red, fontSize: 16),
-      ),
-    ),
-  );
+        child: Padding(
+          padding: const EdgeInsets.all(AppColors.kPadding),
+          child: Text(
+            _error!,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Colors.red, fontSize: 16),
+          ),
+        ),
+      );
 
-  Widget _buildCarousel(double cardWidth, double cardHeight) {
+  // ✅ CORREGIDO: Usamos PropertyCard con isCompact: true
+  Widget _buildCarousel(double screenWidth) {
     return LayoutBuilder(
       builder: (context, constraints) {
+        // Cálculo de items por página
         int itemsPerPage = constraints.maxWidth >= 1200
             ? 4
             : (constraints.maxWidth >= 900
-                  ? 3
-                  : (constraints.maxWidth >= 600 ? 2 : 1));
+                ? 3
+                : (constraints.maxWidth >= 600 ? 2 : 1));
         final pagesCount =
             (_featuredProperties.length + itemsPerPage - 1) ~/ itemsPerPage;
 
@@ -462,28 +451,28 @@ class _HomePageState extends State<HomePage> {
                         setState(() => _currentCarouselPage = p),
                     itemBuilder: (context, pageIndex) {
                       final start = pageIndex * itemsPerPage;
-                      final end =
-                          (start + itemsPerPage) < _featuredProperties.length
+                      final end = (start + itemsPerPage) <
+                              _featuredProperties.length
                           ? (start + itemsPerPage)
                           : _featuredProperties.length;
                       final chunk = _featuredProperties.sublist(start, end);
+                      
                       return Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: chunk
                             .map(
-                              (property) => Padding(
-                                padding: const EdgeInsets.only(
-                                  right: AppColors.kMargin,
-                                ),
-                                child: PropertyCard(
-                                  property: property,
-                                  cardWidth: cardWidth,
-                                  cardHeight: cardHeight,
-                                  onDetailsPressed: () => Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => PropertyDetailPage(
-                                        propertyRef: property.id,
+                              (property) => Expanded(
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                                  child: PropertyCard(
+                                    property: property,
+                                    isCompact: true, // ✅ Estilo Home
+                                    onDetailsPressed: () => Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => PropertyDetailPage(
+                                          propertyRef: property.id,
+                                        ),
                                       ),
                                     ),
                                   ),
