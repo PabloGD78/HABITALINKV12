@@ -86,10 +86,11 @@ class _RegisterFormState extends State<_RegisterForm> {
   final TextEditingController _tlfController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _confirmPasswordController = TextEditingController();
-  
+  final TextEditingController _confirmPasswordController =
+      TextEditingController();
+
   // Guardamos el valor seleccionado (puede estar en mayúsculas para la vista)
-  String _tipoSeleccionado = ''; 
+  String _tipoSeleccionado = '';
   bool _tipoError = false;
 
   void _showMessageDialog(String title, String message, bool isSuccess) {
@@ -106,7 +107,11 @@ class _RegisterFormState extends State<_RegisterForm> {
     // 1. Validar que se haya seleccionado un tipo
     if (_tipoSeleccionado.isEmpty) {
       setState(() => _tipoError = true);
-      _showMessageDialog('Error', 'Por favor selecciona un tipo de cuenta.', false);
+      _showMessageDialog(
+        'Error',
+        'Por favor selecciona un tipo de cuenta.',
+        false,
+      );
       return;
     } else {
       setState(() => _tipoError = false);
@@ -125,7 +130,8 @@ class _RegisterFormState extends State<_RegisterForm> {
       tlf: _tlfController.text.trim(),
       correo: _emailController.text.trim(),
       contrasenia: _passwordController.text,
-      tipo: _tipoSeleccionado.toLowerCase(), // ¡IMPORTANTE! Convierte 'Comprador' a 'comprador'
+      tipo: _tipoSeleccionado
+          .toLowerCase(), // ¡IMPORTANTE! Convierte 'Comprador' a 'comprador'
     );
 
     if (result['success'] == true) {
@@ -198,21 +204,21 @@ class _RegisterFormState extends State<_RegisterForm> {
               ),
             ),
             const SizedBox(height: 30),
-            
+
             _RegisterTextField(
               controller: _nombreController,
               hintText: 'Nombre',
               icon: Icons.person_outline,
             ),
             const SizedBox(height: 20),
-            
+
             _RegisterTextField(
               controller: _apellidosController,
               hintText: 'Apellidos',
               icon: Icons.person_outline,
             ),
             const SizedBox(height: 20),
-            
+
             _RegisterTextField(
               controller: _tlfController,
               hintText: 'Teléfono',
@@ -220,14 +226,14 @@ class _RegisterFormState extends State<_RegisterForm> {
               keyboardType: TextInputType.phone,
             ),
             const SizedBox(height: 20),
-            
+
             _RegisterTextField(
               controller: _emailController,
               hintText: 'Usuario@gmail.com',
               icon: Icons.mail_outline,
             ),
             const SizedBox(height: 20),
-            
+
             _RegisterTextField(
               controller: _passwordController,
               hintText: 'Contraseña',
@@ -235,7 +241,7 @@ class _RegisterFormState extends State<_RegisterForm> {
               isPassword: true,
             ),
             const SizedBox(height: 20),
-            
+
             _RegisterTextField(
               controller: _confirmPasswordController,
               hintText: 'Confirmar contraseña',
