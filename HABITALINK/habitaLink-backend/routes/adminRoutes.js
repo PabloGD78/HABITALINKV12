@@ -2,15 +2,14 @@ const express = require('express');
 const router = express.Router();
 const adminController = require('../controllers/adminController');
 
-
-//console.log("Funciones cargadas:", Object.keys(adminController));
-
-// GESTIÓN DE USUARIOS
+// Listar todos los usuarios
 router.get('/users', adminController.getAllUsers);
+
+// Borrar un usuario (Profesional/Particular)
+// Flutter llama a: /api/admin/users/:id
 router.delete('/users/:id', adminController.deleteUser);
 
-// GESTIÓN DE INMUEBLES
+// Listar propiedades (Vista de tabla admin)
 router.get('/properties', adminController.getAllProperties);
-router.put('/properties/:id/status', adminController.updatePropertyStatus);
 
 module.exports = router;

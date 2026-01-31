@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../../theme/colors.dart';
+// IMPORTAMOS EL LAYOUT Y EL SIDEBAR
 import '../../widgets/master_layout.dart'; 
 import '../../widgets/admin_sidebar.dart'; 
 
@@ -16,6 +17,7 @@ class _PropertiesViewState extends State<PropertiesView> {
   List<dynamic> _properties = [];
   bool _isLoading = true;
 
+  // Ajusta según tu entorno (localhost para web, 10.0.2.2 para emulador Android)
   final String _baseUrl = "http://localhost:3000/api"; 
   final String _baseImgUrl = "http://localhost:3000/uploads/"; 
 
@@ -29,49 +31,74 @@ class _PropertiesViewState extends State<PropertiesView> {
     if (!mounted) return;
     setState(() => _isLoading = true);
     try {
+      // Asegúrate de que esta ruta existe en tu backend (la añadimos en server.js hace poco)
       final response = await http.get(Uri.parse('$_baseUrl/properties'));
+      
       if (response.statusCode == 200 && mounted) {
         final data = json.decode(response.body);
         setState(() {
-          _properties = data['data'] ?? []; 
+          // Si el backend devuelve { success: true, properties: [...] }
+          if (data['properties'] != null) {
+             _properties = data['properties'];
+          } 
+          // Si devuelve { data: [...] }
+          else if (data['data'] != null) {
+            _properties = data['data'];
+          }
+          // Si devuelve la lista directamente [...]
+          else if (data is List) {
+            _properties = data;
+          } else {
+            _properties = [];
+          }
           _isLoading = false;
         });
+      } else {
+        if (mounted) setState(() => _isLoading = false);
       }
     } catch (e) {
+      print("Error cargando propiedades: $e");
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  Future<void> _aprobarPropiedad(String id) async {
+  Future<void> _aprobarPropiedad(int id) async {
     try {
-      await http.put(Uri.parse('$_baseUrl/properties/$id/approve'));
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("✅ Inmueble Aprobado"), backgroundColor: Colors.green),
-        );
+      final response = await http.put(
+        Uri.parse('$_baseUrl/propiedades/$id/estado'),
+        headers: {"Content-Type": "application/json"},
+        body: json.encode({"estado": "disponible"}), // Cambia a "disponible"
+      );
+
+      if (response.statusCode == 200) {
+        _fetchProperties(); // Recargar lista
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Propiedad aprobada")));
       }
-      _fetchProperties(); 
     } catch (e) {
-      print(e);
+      print("Error aprobando: $e");
     }
   }
 
-  void _confirmarBorrado(String id) {
+  Future<void> _confirmarBorrado(int id) async {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text("Eliminar Inmueble"),
-        content: const Text("Se borrará permanentemente."),
+        title: const Text("Eliminar Propiedad"),
+        content: const Text("¿Estás seguro? Esta acción no se puede deshacer."),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancelar")),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
-              Navigator.pop(context);
-              await http.delete(Uri.parse('$_baseUrl/properties/$id'));
-              _fetchProperties();
+              Navigator.pop(context); // Cerrar diálogo
+              try {
+                await http.delete(Uri.parse('$_baseUrl/propiedades/$id'));
+                _fetchProperties(); // Recargar lista
+              } catch (e) {
+                print("Error borrando: $e");
+              }
             },
-            child: const Text("ELIMINAR", style: TextStyle(color: Colors.white)),
+            child: const Text("Eliminar", style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -80,121 +107,93 @@ class _PropertiesViewState extends State<PropertiesView> {
 
   @override
   Widget build(BuildContext context) {
+    // AQUI USAMOS EL MASTER LAYOUT
     return MasterLayout(
-      title: "Control de Inmuebles",
-      // ✅ AQUÍ ESTABA EL CAMBIO IMPORTANTE:
-      // Ya no pasamos funciones, solo le decimos "Soy la pantalla 4"
-      sidebar: const AdminSidebar(selectedIndex: 4), 
-      body: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Container(
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(10),
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
-          ),
-          child: _isLoading
-              ? const Center(child: Padding(padding: EdgeInsets.all(40), child: CircularProgressIndicator()))
-              : _properties.isEmpty 
-                  ? const Center(child: Padding(padding: EdgeInsets.all(40), child: Text("No hay propiedades.")))
-                  : ClipRRect(
-                      borderRadius: BorderRadius.circular(10),
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.vertical,
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: DataTable(
-                            columnSpacing: 25,
-                            headingRowColor: MaterialStateProperty.all(AppColors.primary.withOpacity(0.1)),
-                            dataRowMinHeight: 70,
-                            dataRowMaxHeight: 80,
-                            columns: const [
-                              DataColumn(label: Text("ID", style: TextStyle(fontWeight: FontWeight.bold))),
-                              DataColumn(label: Text("Inmueble", style: TextStyle(fontWeight: FontWeight.bold))),
-                              DataColumn(label: Text("Precio", style: TextStyle(fontWeight: FontWeight.bold))),
-                              DataColumn(label: Text("Estado", style: TextStyle(fontWeight: FontWeight.bold))),
-                              DataColumn(label: Text("Acciones", style: TextStyle(fontWeight: FontWeight.bold))),
-                            ],
-                            rows: _buildRows(),
-                          ),
-                        ),
+      title: "Gestión de Propiedades",
+      // Marcamos índice 4 para que el sidebar sepa dónde estamos
+      sidebar: const AdminSidebar(selectedIndex: 4),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Card(
+                elevation: 2,
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: _properties.isEmpty 
+                    ? const Center(child: Text("No hay propiedades registradas."))
+                    : DataTable(
+                        headingRowColor: MaterialStateProperty.all(AppColors.primary.withOpacity(0.1)),
+                        columnSpacing: 20,
+                        columns: const [
+                          DataColumn(label: Text("ID")),
+                          DataColumn(label: Text("Inmueble")), // Título + Tipo
+                          DataColumn(label: Text("Precio")),
+                          DataColumn(label: Text("Estado")),
+                          DataColumn(label: Text("Acciones")),
+                        ],
+                        rows: _properties.map((prop) {
+                          // Parseo seguro de datos
+                          final id = prop['id'] is int ? prop['id'] : int.tryParse(prop['id'].toString()) ?? 0;
+                          final titulo = prop['title'] ?? prop['nombre'] ?? "Sin título";
+                          final tipo = prop['tipo'] ?? "Desconocido";
+                          final precio = prop['precio'] ?? 0;
+                          final estado = prop['estado'] ?? "pendiente";
+                          final bool isPending = estado.toString().toLowerCase() == 'pendiente';
+
+                          return DataRow(cells: [
+                            DataCell(Text("#$id")),
+                            DataCell(Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(titulo, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                Text(tipo.toString().toUpperCase(), style: const TextStyle(color: Colors.grey, fontSize: 10)),
+                              ],
+                            )),
+                            DataCell(Text("$precio €", style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary))),
+                            
+                            DataCell(Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: isPending ? Colors.orange.shade100 : Colors.green.shade100,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                estado.toString().toUpperCase(),
+                                style: TextStyle(
+                                  color: isPending ? Colors.orange.shade800 : Colors.green.shade800, 
+                                  fontSize: 10, 
+                                  fontWeight: FontWeight.bold
+                                ),
+                              ),
+                            )),
+
+                            DataCell(Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (isPending)
+                                  IconButton(
+                                    icon: const Icon(Icons.check_circle, color: Colors.green), 
+                                    tooltip: "Aprobar",
+                                    onPressed: () => _aprobarPropiedad(id)
+                                  ),
+                                IconButton(
+                                  icon: const Icon(Icons.delete, color: Colors.red), 
+                                  tooltip: "Eliminar",
+                                  onPressed: () => _confirmarBorrado(id)
+                                ),
+                              ],
+                            )),
+                          ]);
+                        }).toList(),
                       ),
-                    ),
-        ),
-      ),
+                  ),
+                ),
+              ),
+            ),
     );
-  }
-
-  List<DataRow> _buildRows() {
-    return _properties.map((prop) {
-      String id = prop['id'].toString();
-      String titulo = prop['titulo'] ?? "Sin título";
-      String precio = prop['precio']?.toString() ?? "0";
-      String estado = prop['estado'] ?? "pendiente";
-      String tipo = prop['tipo_operacion'] ?? "Venta";
-      
-      String? imagenUrl;
-      if (prop['imagen_principal'] != null) {
-        imagenUrl = "$_baseImgUrl${prop['imagen_principal']}";
-      }
-      bool isPending = estado == 'pendiente';
-
-      return DataRow(cells: [
-        DataCell(Text("#$id", style: const TextStyle(color: Colors.grey, fontSize: 12))),
-        
-        DataCell(Row(
-          mainAxisSize: MainAxisSize.min, 
-          children: [
-            Container(
-              width: 50, height: 50,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade200,
-                borderRadius: BorderRadius.circular(5),
-                image: imagenUrl != null
-                    ? DecorationImage(image: NetworkImage(imagenUrl), fit: BoxFit.cover)
-                    : null,
-              ),
-              child: imagenUrl == null ? const Icon(Icons.home, color: Colors.grey, size: 20) : null,
-            ),
-            const SizedBox(width: 10),
-            SizedBox(
-              width: 140, 
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(titulo, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis),
-                  Text(tipo.toUpperCase(), style: const TextStyle(color: Colors.grey, fontSize: 10)),
-                ],
-              ),
-            ),
-          ],
-        )),
-
-        DataCell(Text("$precio €", style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary))),
-        
-        DataCell(Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: isPending ? Colors.orange.shade100 : Colors.green.shade100,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Text(
-            estado.toUpperCase(),
-            style: TextStyle(color: isPending ? Colors.orange.shade800 : Colors.green.shade800, fontSize: 10, fontWeight: FontWeight.bold),
-          ),
-        )),
-
-        DataCell(Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (isPending)
-              IconButton(icon: const Icon(Icons.check_circle, color: Colors.green), onPressed: () => _aprobarPropiedad(id)),
-            IconButton(icon: const Icon(Icons.delete, color: Colors.red), onPressed: () => _confirmarBorrado(id)),
-          ],
-        )),
-      ]);
-    }).toList();
   }
 }

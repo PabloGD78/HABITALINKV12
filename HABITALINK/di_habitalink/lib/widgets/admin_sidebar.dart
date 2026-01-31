@@ -1,7 +1,14 @@
 import 'package:flutter/material.dart';
 import '../theme/colors.dart';
-import '/view/admin/properties_view.dart';
-import '/view/admin/admin_dashboard_screen.dart';
+
+// --- IMPORTACIONES DE TODAS LAS PANTALLAS ---
+// Asegúrate de que estas rutas coincidan con tus carpetas
+import '/view/admin/admin_dashboard_screen.dart'; // Case 0
+import '/view/admin/professionals_view.dart';     // Case 1
+import '/view/admin/particulares_view.dart';      // Case 2
+import '/view/admin/clients_view.dart';           // Case 3 (Compradores)
+import '/view/admin/properties_view.dart';        // Case 4
+// -------------------------------------------
 
 class AdminSidebar extends StatelessWidget {
   final int selectedIndex;
@@ -13,7 +20,6 @@ class AdminSidebar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Usamos un Material para asegurarnos de que los ListTile detecten el tap
     return Material(
       color: Colors.white,
       child: Container(
@@ -38,8 +44,10 @@ class AdminSidebar extends StatelessWidget {
                   _buildMenuItem(context, 0, "Dashboard", Icons.dashboard),
                   _buildMenuItem(context, 1, "Profesionales", Icons.business),
                   _buildMenuItem(context, 2, "Particulares", Icons.person),
-                  _buildMenuItem(context, 3, "Clientes", Icons.shopping_bag),
-                  _buildMenuItem(context, 4, "Inmuebles", Icons.home_work),
+                  _buildMenuItem(context, 3, "Clientes (Comp)", Icons.people),
+                  _buildMenuItem(context, 4, "Propiedades", Icons.home_work),
+                  const Divider(),
+                  _buildMenuItem(context, 5, "Cerrar Sesión", Icons.logout),
                 ],
               ),
             ),
@@ -50,10 +58,9 @@ class AdminSidebar extends StatelessWidget {
   }
 
   Widget _buildMenuItem(BuildContext context, int index, String title, IconData icon) {
-    final isSelected = selectedIndex == index;
-    
+    bool isSelected = index == selectedIndex;
+
     return ListTile(
-      selected: isSelected,
       leading: Icon(icon, color: isSelected ? AppColors.primary : Colors.grey),
       title: Text(
         title,
@@ -64,39 +71,43 @@ class AdminSidebar extends StatelessWidget {
       ),
       tileColor: isSelected ? AppColors.primary.withOpacity(0.1) : null,
       onTap: () {
-        print("Boton pulsado: $index"); // ESTO DEBE APARECER EN TU CONSOLA
-
+        // Evita recargar si ya estás en esa pantalla
         if (index == selectedIndex) return;
 
         Widget nextPage;
+
+        // --- SISTEMA DE NAVEGACIÓN ---
         switch (index) {
           case 0:
             nextPage = const AdminDashboardScreen();
             break;
-          case 4:
-            nextPage = const PropertiesView();
+          case 1:
+            nextPage = const ProfessionalsView(); // Abre la vista de profesionales
             break;
+          case 2:
+            nextPage = const ParticularesView(); // Abre la vista de particulares
+            break;
+          case 3:
+            nextPage = const ClientsView();      // Abre la vista de compradores
+            break;
+          case 4:
+            nextPage = const PropertiesView();   // Abre la vista de propiedades
+            break;
+            
           default:
-            _showSnackBar(context, title);
+            // Opción por defecto para botones sin pantalla (como cerrar sesión si se maneja aparte)
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('La opción "$title" aún no está conectada.')),
+            );
             return;
         }
 
-        // SALTO LIMPIO: Esto evita que las pantallas se amontonen
-        Navigator.pushAndRemoveUntil(
+        // Navegar a la pantalla seleccionada
+        Navigator.pushReplacement(
           context,
-          PageRouteBuilder(
-            pageBuilder: (context, animation, secondaryAnimation) => nextPage,
-            transitionDuration: Duration.zero, // Estilo Web: instantáneo
-          ),
-          (route) => false, // Borra el historial para que no se bloquee
+          MaterialPageRoute(builder: (context) => nextPage),
         );
       },
-    );
-  }
-
-  void _showSnackBar(BuildContext context, String title) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Sección $title en desarrollo"), duration: const Duration(milliseconds: 500)),
     );
   }
 }

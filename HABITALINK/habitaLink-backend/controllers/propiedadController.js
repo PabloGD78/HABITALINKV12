@@ -1,153 +1,136 @@
-const PropiedadModel = require('../models/propiedadModel');
+const db = require('../config/db');
 
 /**
  * CREAR PROPIEDAD (POST)
+ * Maneja la subida de datos e imágenes
  */
 exports.crearPropiedad = async (req, res) => {
     try {
-        // Obtener múltiples imágenes si existen
+        // Gestión de imágenes (si usas multer en las rutas)
         const imagenesUrls = [];
         if (req.files && Array.isArray(req.files) && req.files.length > 0) {
             req.files.forEach(f => {
                 imagenesUrls.push(`/uploads/${f.filename}`);
             });
         }
+        // Convertimos a string separado por comas para guardar en BD (ajusta si usas otra tabla para fotos)
+        const fotosString = imagenesUrls.join(',');
 
-        // 3️⃣ Preparar datos para el modelo
-        const latitude = req.body.latitude ? Number(req.body.latitude) : 0.0;
-        const longitude = req.body.longitude ? Number(req.body.longitude) : 0.0;
-        
-        // 🔍 DEBUG: Mostrar coordenadas recibidas
-        console.log('📍 Coordenadas recibidas en crear propiedad:', {
-            latitude,
-            longitude,
-            ubicacion: req.body.ubicacion,
-            titulo: req.body.titulo,
-        });
-        
-        const nuevaPropiedad = {
-            id_usuario: req.body.id_usuario,
-            titulo: req.body.titulo || '',
-            precio: Number(req.body.precio) || 0,
-            descripcion: req.body.descripcion || '',
-            dormitorios: Number(req.body.dormitorios) || 0,
-            banos: Number(req.body.banos) || 0,
-            superficie: Number(req.body.superficie) || 0,
-            tipo: req.body.tipo || '',
-            ubicacion: req.body.ubicacion || 'Sevilla',
-            
-            // ✅ NUEVO: Capturamos las coordenadas enviadas desde Flutter
-            // Las convertimos a Number para asegurar que MySQL las reciba como decimales
-            latitude: latitude,
-            longitude: longitude,
-            
-            caracteristicas: req.body.caracteristicas ? req.body.caracteristicas : null,
-            imagenes: imagenesUrls,
-        };
+        // Datos del body
+        const {
+            id_usuario, titulo, precio, descripcion, 
+            dormitorios, banos, metros_cuadrados, 
+            ubicacion, tipo, latitude, longitude
+        } = req.body;
 
-        // 4️⃣ Guardar en la base de datos
-        // IMPORTANTE: Asegúrate de que PropiedadModel.crear use estos nuevos campos
-        const propiedadId = await PropiedadModel.crear(nuevaPropiedad);
+        const estadoInicial = 'pendiente'; // Siempre pendiente hasta que el admin apruebe
 
-        return res.status(201).json({
-            success: true,
-            message: 'Propiedad creada exitosamente',
-            propiedadId,
+        const query = `
+            INSERT INTO inmueble_anuncio 
+            (id_usuario, nombre, descripcion, precio, ubicacion, estado, dormitorios, banos, metros_cuadrados, tipo, fotos)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `;
+
+        const [result] = await db.execute(query, [
+            id_usuario, 
+            titulo || 'Sin título', 
+            descripcion || '', 
+            precio || 0, 
+            ubicacion || '', 
+            estadoInicial, 
+            dormitorios || 0, 
+            banos || 0, 
+            metros_cuadrados || 0, 
+            tipo || 'venta',
+            fotosString
+        ]);
+
+        res.status(201).json({ 
+            success: true, 
+            message: "Propiedad creada correctamente", 
+            id: result.insertId 
         });
 
     } catch (error) {
-        console.error('🔥 Error al crear propiedad:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Error interno del servidor al crear propiedad',
-            error: error.message,
-        });
+        console.error("Error creando propiedad:", error);
+        res.status(500).json({ success: false, message: "Error al crear propiedad" });
     }
 };
 
 /**
- * OBTENER TODAS LAS PROPIEDADES (GET /)
+ * OBTENER TODAS LAS PROPIEDADES (Para la APP de usuario)
+ * Solo devuelve las que estén 'disponible' (aprobadas)
  */
 exports.obtenerPropiedades = async (req, res) => {
     try {
-        const propiedades = await PropiedadModel.obtenerTodas();
-        
-        return res.status(200).json({
-            success: true,
-            propiedades: propiedades
-        });
+        // Filtramos por estado 'disponible' para usuarios normales
+        const [rows] = await db.execute("SELECT * FROM inmueble_anuncio WHERE estado = 'disponible'");
+        res.json(rows);
     } catch (error) {
-        console.error('🔥 Error al obtener propiedades:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Error interno del servidor al obtener propiedades',
-            error: error.message
-        });
+        console.error("Error obteniendo propiedades:", error);
+        res.status(500).json({ error: "Error al obtener propiedades" });
     }
 };
 
 /**
- * 🔑 OBTENER DETALLES DE UNA SOLA PROPIEDAD (GET /:id)
+ * OBTENER DETALLE DE UNA PROPIEDAD
  */
-exports.obtenerPropiedadDetalle = async (req, res) => {
+exports.obtenerDetallePropiedad = async (req, res) => {
     try {
-        const propertyId = req.params.id; 
+        const { id } = req.params;
+        const [rows] = await db.execute("SELECT * FROM inmueble_anuncio WHERE id = ?", [id]);
         
-        const propiedad = await PropiedadModel.obtenerPorId(propertyId);
-        
-        if (!propiedad) {
-            return res.status(404).json({
-                success: false,
-                message: `Property with ref ${propertyId} not found.`, 
-            });
+        if (rows.length === 0) {
+            return res.status(404).json({ message: "Propiedad no encontrada" });
         }
-
-        return res.status(200).json({
-            success: true,
-            propiedad: propiedad 
-        });
-
+        res.json(rows[0]);
     } catch (error) {
-        console.error('🔥 Error al obtener detalles de propiedad:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Error interno del servidor al obtener detalles',
-            error: error.message
-        });
+        res.status(500).json({ error: "Error al obtener detalle" });
     }
-
 };
-    // ✅ ESTA ES LA FUNCIÓN QUE FALTA O ESTÁ MAL ESCRITA
+
+/**
+ * APROBAR PROPIEDAD (Admin)
+ * Esta función es la que usa el PropertiesView.dart
+ */
 exports.aprobarPropiedad = async (req, res) => {
     try {
         const { id } = req.params;
-        // Llamamos al método estático que arreglamos antes en el modelo
-        const resultado = await PropiedadModel.cambiarEstado(id, 'Aprobado');
+        const { estado } = req.body; // Flutter enviará "disponible"
+
+        const [result] = await db.execute(
+            'UPDATE inmueble_anuncio SET estado = ? WHERE id = ?', 
+            [estado || 'disponible', id]
+        );
         
-        if (resultado.affectedRows === 0) {
+        if (result.affectedRows === 0) {
             return res.status(404).json({ message: "No se encontró la propiedad" });
         }
 
         res.json({ message: "Propiedad aprobada correctamente" });
     } catch (error) {
         console.error("Error en aprobarPropiedad:", error);
-        res.status(500).json({ error: "Error interno del servidor al aprobar" });
+        res.status(500).json({ error: "Error interno del servidor" });
     }
 };
 
-// ✅ APROVECHAMOS PARA ASEGURAR EL ELIMINAR
+/**
+ * ELIMINAR PROPIEDAD (Admin)
+ */
 exports.eliminarPropiedad = async (req, res) => {
     try {
         const { id } = req.params;
-        const resultado = await PropiedadModel.eliminar(id);
         
-        if (resultado.affectedRows === 0) {
+        // Borrado físico de la base de datos
+        const [result] = await db.execute('DELETE FROM inmueble_anuncio WHERE id = ?', [id]);
+        
+        if (result.affectedRows === 0) {
             return res.status(404).json({ message: "No se encontró la propiedad para eliminar" });
         }
         
-        res.json({ message: "Propiedad eliminada con éxito" });
+        res.json({ message: "Propiedad eliminada correctamente" });
     } catch (error) {
-        console.error("Error en eliminarPropiedad:", error);
-        res.status(500).json({ error: "Error interno del servidor al eliminar" });
+        console.error("Error al eliminar propiedad:", error);
+        res.status(500).json({ success: false, message: 'Error al eliminar la propiedad' });
     }
 };
