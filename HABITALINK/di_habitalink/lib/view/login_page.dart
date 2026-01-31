@@ -3,8 +3,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../theme/colors.dart';
 import '../services/auth_service.dart';
 import 'home_page.dart';
-import 'register_page.dart';
-import 'admin/admin_dashboard_screen.dart'; // Verifica que esta ruta sea correcta
+import 'register_page.dart'; // 🚀 Importado para el botón de crear cuenta
+import 'admin/admin_dashboard_screen.dart'; // 🚀 Importado para el flujo de Admin
 
 final AuthService _authService = AuthService();
 
@@ -105,53 +105,57 @@ class _LoginFormState extends State<_LoginForm> {
       return;
     }
 
-    final result = await _authService.login(
-      correo: _emailController.text.trim(),
-      contrasenia: _passwordController.text,
-    );
-
-    if (result['success'] == true) {
-      final prefs = await SharedPreferences.getInstance();
-      final userData = result['user'];
-
-      // --- GUARDAR ESTADO DE SESIÓN ---
-      await prefs.setBool('userLoggedIn', true);
-      await prefs.setString('userName', userData['nombre'] ?? 'Usuario');
-      
-      // Limpiamos el rol para evitar errores de mayúsculas o espacios
-      String rol = (userData['rol'] ?? 'usuario').toString().trim().toLowerCase();
-      await prefs.setString('rol', rol); 
-      
-      await prefs.setString(
-        'tipo',
-        (userData['tipo'] ?? 'particular').toString().toLowerCase(),
+    try {
+      final result = await _authService.login(
+        correo: _emailController.text.trim(),
+        contrasenia: _passwordController.text,
       );
-      await prefs.setString('userId', userData['id']?.toString() ?? '');
 
-      // DEBUG: Para que veas en la consola de Flutter qué rol se guardó
-      debugPrint("DEBUG: Login exitoso. Rol detectado: $rol");
+      if (result['success'] == true) {
+        final prefs = await SharedPreferences.getInstance();
+        final userData = result['user'];
 
-      if (!mounted) return;
-      _showMessageDialog("Bienvenido, ${userData['nombre']}", true);
+        // Guardar datos y obtener el ROL
+        final String userRole =
+            userData['rol']?.toString().toLowerCase() ?? 'usuario';
 
-      // --- NAVEGACIÓN BASADA EN ROL ---
-      if (rol == 'admin') {
-  // FORMA CORRECTA PARA QUE CAMBIE LA URL:
-  Navigator.pushNamedAndRemoveUntil(
-    context,
-    '/admin_dashboard_screen', // <--- Al poner el nombre, la URL del navegador cambiará
-    (route) => false,
-  );
-} else {
-  // Lo mismo para el usuario normal
-  Navigator.pushNamedAndRemoveUntil(
-    context,
-    '/', 
-    (route) => false,
-  );
-}
-    } else {
-      _showMessageDialog(result['message'] ?? 'Error de credenciales', false);
+        await prefs.setString('userEmail', _emailController.text.trim());
+        await prefs.setString('userPassword', _passwordController.text);
+        await prefs.setString('userName', userData['nombre'] ?? 'Usuario');
+        await prefs.setString('rol', userRole);
+        await prefs.setString(
+          'tipo',
+          userData['tipo']?.toLowerCase() ?? 'particular',
+        );
+
+        final String userId = userData['id']?.toString() ?? '';
+        await prefs.setString('idUsuario', userId);
+
+        if (!mounted) return;
+        _showMessageDialog("Bienvenido, ${userData['nombre']}", true);
+
+        // 🚀 Lógica de Navegación por Rol
+        if (userRole == 'admin') {
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const AdminDashboardScreen(),
+            ),
+            (route) => false,
+          );
+        } else {
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (context) => const HomePage()),
+            (route) => false,
+          );
+        }
+      } else {
+        _showMessageDialog(result['message'] ?? 'Error de credenciales', false);
+      }
+    } catch (e) {
+      debugPrint("Error en login: $e");
+      _showMessageDialog("Error de conexión con el servidor", false);
     }
   }
 
@@ -232,10 +236,13 @@ class _LoginFormState extends State<_LoginForm> {
             ),
             const SizedBox(height: 20),
             TextButton(
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const RegisterPage()),
-              ),
+              onPressed: () {
+                // 🚀 Navegar a la página de Registro
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const RegisterPage()),
+                );
+              },
               child: const Text(
                 'Crear cuenta ↗',
                 style: TextStyle(color: AppColors.iconColor, fontSize: 16),
@@ -248,7 +255,7 @@ class _LoginFormState extends State<_LoginForm> {
   }
 }
 
-class _LoginTextField extends StatefulWidget {
+class _LoginTextField extends StatelessWidget {
   final String hintText;
   final IconData icon;
   final bool isPassword;
@@ -262,21 +269,14 @@ class _LoginTextField extends StatefulWidget {
   });
 
   @override
-  State<_LoginTextField> createState() => _LoginTextFieldState();
-}
-
-class _LoginTextFieldState extends State<_LoginTextField> {
-  bool _obscureText = true;
-
-  @override
   Widget build(BuildContext context) {
     return TextField(
-      controller: widget.controller,
-      obscureText: widget.isPassword ? _obscureText : false,
+      controller: controller,
+      obscureText: isPassword,
       decoration: InputDecoration(
-        hintText: widget.hintText,
+        hintText: hintText,
         hintStyle: const TextStyle(color: AppColors.hintTextColor),
-        prefixIcon: Icon(widget.icon, color: AppColors.iconColor),
+        prefixIcon: Icon(icon, color: AppColors.iconColor),
         filled: true,
         fillColor: AppColors.textFieldBackground,
         border: OutlineInputBorder(
@@ -287,15 +287,6 @@ class _LoginTextFieldState extends State<_LoginTextField> {
           vertical: 20,
           horizontal: 25,
         ),
-        suffixIcon: widget.isPassword
-            ? IconButton(
-                icon: Icon(
-                  _obscureText ? Icons.visibility_off : Icons.visibility,
-                  color: AppColors.iconColor,
-                ),
-                onPressed: () => setState(() => _obscureText = !_obscureText),
-              )
-            : null,
       ),
     );
   }

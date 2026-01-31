@@ -1,9 +1,11 @@
+// lib/pages/FavoritosPage.dart - CÓDIGO COMPLETO Y DINÁMICO
+
 import 'package:flutter/material.dart';
 import '../theme/colors.dart';
+import '../widgets/result_property_card.dart';
 import 'property/property_detail_page.dart';
 import '../models/property_model.dart';
 import '../services/favoritos_service.dart';
-import '../widgets/property_card.dart'; // ✅ Import correcto
 
 class FavoritosPage extends StatefulWidget {
   const FavoritosPage({super.key});
@@ -98,72 +100,70 @@ class _FavoritosPageState extends State<FavoritosPage> {
           child: _isLoading
               ? const Center(child: CircularProgressIndicator())
               : _error != null
-                  ? Center(
-                      child: Text(
-                        _error!,
-                        style: const TextStyle(color: Colors.red, fontSize: 16),
-                        textAlign: TextAlign.center,
+              ? Center(
+                  child: Text(
+                    _error!,
+                    style: const TextStyle(color: Colors.red, fontSize: 16),
+                    textAlign: TextAlign.center,
+                  ),
+                )
+              : _favoritos.isEmpty
+              ? const Center(
+                  child: Padding(
+                    padding: EdgeInsets.only(top: 50.0),
+                    child: Text(
+                      "Aún no tienes propiedades en favoritos.",
+                      style: TextStyle(
+                        fontSize: 18,
+                        color: AppColors.hintTextColor,
                       ),
-                    )
-                  : _favoritos.isEmpty
-                      ? const Center(
-                          child: Padding(
-                            padding: EdgeInsets.only(top: 50.0),
-                            child: Text(
-                              "Aún no tienes propiedades en favoritos.",
-                              style: TextStyle(
-                                fontSize: 18,
-                                color: AppColors.hintTextColor,
+                    ),
+                  ),
+                )
+              : ListView.builder(
+                  itemCount: _favoritos.length,
+                  padding: const EdgeInsets.all(20),
+                  itemBuilder: (context, index) {
+                    final property = _favoritos[index];
+
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 20.0),
+                      child: Stack(
+                        children: [
+                          ResultPropertyCard(
+                            property: property,
+                            // cardWidth y cardHeight han sido eliminados del constructor
+                            onDetailsPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => PropertyDetailPage(
+                                    propertyRef: property.id,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                          // Icono para ELIMINAR de favoritos
+                          Positioned(
+                            top: 16,
+                            right: 16,
+                            child: IconButton(
+                              icon: const Icon(
+                                Icons.favorite,
+                                color: Color(0xFF007F3E),
+                                size: 30,
                               ),
+                              onPressed: () {
+                                _removeFavoriteAndReload(property.id);
+                              },
                             ),
                           ),
-                        )
-                      : ListView.builder(
-                          itemCount: _favoritos.length,
-                          padding: const EdgeInsets.all(20),
-                          itemBuilder: (context, index) {
-                            final property = _favoritos[index];
-
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 20.0),
-                              child: Stack(
-                                children: [
-                                  // ✅ Nueva Card
-                                  PropertyCard(
-                                    property: property,
-                                    isCompact: false, // Estilo grande
-                                    onDetailsPressed: () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) =>
-                                              PropertyDetailPage(
-                                            propertyRef: property.id,
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                  // Icono para ELIMINAR de favoritos
-                                  Positioned(
-                                    top: 16,
-                                    right: 16,
-                                    child: IconButton(
-                                      icon: const Icon(
-                                        Icons.favorite,
-                                        color: Color(0xFF007F3E),
-                                        size: 30,
-                                      ),
-                                      onPressed: () {
-                                        _removeFavoriteAndReload(property.id);
-                                      },
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
-                        ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
         ),
       ),
     );

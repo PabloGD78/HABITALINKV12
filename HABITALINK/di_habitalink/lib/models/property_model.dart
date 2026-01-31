@@ -3,10 +3,10 @@ import 'package:latlong2/latlong.dart';
 // -----------------------------------------------------------------------------
 // 0. CONFIGURACIÓN DE URL BASE
 // -----------------------------------------------------------------------------
-const String baseUrl = 'http://localhost:3000'; 
+const String BASE_URL_SERVER = 'http://localhost:3000';
 
 // -----------------------------------------------------------------------------
-// 1. FUNCIONES HELPER (UTILIDADES)
+// 1. Funciones Helper para parseo seguro y URL
 // -----------------------------------------------------------------------------
 
 double _parseToDouble(dynamic value) {
@@ -31,38 +31,21 @@ DateTime _parseToDateTime(dynamic value) {
   return DateTime.now();
 }
 
-String _makeAbsoluteUrl(String? path) {
-  if (path == null || path.isEmpty) return 'https://via.placeholder.com/400';
+String _makeAbsoluteUrl(String path) {
+  if (path.isEmpty) return '';
   if (path.startsWith('http')) return path;
-  String cleanPath = path.startsWith('2.') ? path.substring(2) : path;
-  if (!cleanPath.startsWith('/')) cleanPath = '/$cleanPath';
-  return baseUrl + cleanPath;
-}
-
-String _formatCurrency(num value) {
-  if (value == 0) return '0 €';
-  final s = value.toInt().toString(); 
-  final buffer = StringBuffer();
-  int offset = s.length % 3;
-  if (offset > 0) {
-    buffer.write(s.substring(0, offset));
-    if (s.length > 3) buffer.write('.');
-  }
-  for (int i = offset; i < s.length; i += 3) {
-    buffer.write(s.substring(i, i + 3));
-    if (i + 3 < s.length) buffer.write('.');
-  }
-  return '${buffer.toString()} €';
+  final cleanPath = path.startsWith('/') ? path : '/$path';
+  return BASE_URL_SERVER + cleanPath;
 }
 
 // -----------------------------------------------------------------------------
-// 2. MODELO DE DETALLE: Property
+// 2. Modelo de Detalle Completo: Property
 // -----------------------------------------------------------------------------
 
 class Property {
   final String ref;
   final String title;
-  final String price; 
+  final String price;
   final String area;
   final String beds;
   final String baths;
@@ -88,45 +71,75 @@ class Property {
     final lat = _parseToDouble(json['latitude']);
     final lon = _parseToDouble(json['longitude']);
 
-    List<String> imagesList = [];
-    if (json['imagenes'] != null && json['imagenes'] is List) {
-      imagesList = (json['imagenes'] as List)
-          .map((i) => _makeAbsoluteUrl(i.toString()))
-          .toList();
-    } else if (json['url_imagen'] != null) {
-      imagesList = [_makeAbsoluteUrl(json['url_imagen'].toString())];
-    }
+    // 🔍 DEBUG: Mostrar coordenadas parseadas
+    print(
+      '📍 Property.fromJson - Ubicación: lat=$lat, lon=$lon, id=${json['id']}',
+    );
 
     return Property(
       ref: json['id']?.toString() ?? json['ref']?.toString() ?? '',
-      title: json['titulo_completo'] ?? json['titulo'] ?? 'Sin título',
+      title:
+          json['titulo_completo'] ?? json['titulo'] ?? 'Propiedad de Detalle',
       price: json['precio']?.toString() ?? '0',
       area: json['superficie']?.toString() ?? '0',
       beds: json['dormitorios']?.toString() ?? '0',
       baths: json['banos']?.toString() ?? '0',
-      description: json['descripcion_larga'] ?? json['descripcion'] ?? 'Sin descripción.',
+      description:
+          json['descripcion_larga'] ??
+          json['descripcion_corta'] ??
+          json['descripcion'] ??
+          'Sin descripción.',
+
+      // ✅ CORRECCIÓN AQUÍ: Nombres de columnas coincidentes con tu DB (latitude/longitude)
       location: LatLng(lat, lon),
-      images: imagesList,
+
+      images:
+          (json['imagenes'] as List<dynamic>?)
+              ?.map((i) => _makeAbsoluteUrl(i.toString()))
+              .toList() ??
+          (json['url_imagen'] != null
+              ? [_makeAbsoluteUrl(json['url_imagen'].toString())]
+              : []),
       features: List<String>.from(json['caracteristicas'] ?? []),
     );
   }
 }
 
+// -----------------------------------------------------------------------------
+// 3. Modelo de Resumen: PropertySummary
+// -----------------------------------------------------------------------------
+
+String _formatCurrency(int value) {
+  if (value == 0) return '0 €';
+  final s = value.toString();
+  final buffer = StringBuffer();
+  int offset = s.length % 3;
+  if (offset > 0) {
+    buffer.write(s.substring(0, offset));
+    if (s.length > 3) buffer.write('.');
+  }
+  for (int i = offset; i < s.length; i += 3) {
+    buffer.write(s.substring(i, i + 3));
+    if (i + 3 < s.length) buffer.write('.');
+  }
+  return '${buffer.toString()} €';
+}
+
 extension PropertyFormatters on Property {
-  double get priceValue => _parseToDouble(price);
+  int get priceValue => _parseToDouble(price).toInt();
   String get formattedPrice => _formatCurrency(priceValue);
 }
 
-// -----------------------------------------------------------------------------
-// 3. MODELO DE RESUMEN: PropertySummary
-// -----------------------------------------------------------------------------
+extension PropertySummaryFormatters on PropertySummary {
+  String get formattedPrice => _formatCurrency(price);
+}
 
 class PropertySummary {
   final String id;
   final String imageUrl;
   final String title;
   final String details;
-  final double price; 
+  final int price;
   final int bedrooms;
   final int bathrooms;
   final double superficie;
@@ -156,63 +169,105 @@ class PropertySummary {
     final double superficieValue = _parseToDouble(json['superficie']);
     final int bedroomsValue = _parseToInt(json['dormitorios']);
     final int bathroomsValue = _parseToInt(json['banos']);
-    final double priceValue = _parseToDouble(json['precio']);
-    
-    String thumbUrl = '';
-    if (json['imagenes'] != null && (json['imagenes'] as List).isNotEmpty) {
-      thumbUrl = _makeAbsoluteUrl(json['imagenes'][0].toString());
-    } else {
-      thumbUrl = _makeAbsoluteUrl(json['url_imagen']?.toString());
+    final int priceValue = _parseToInt(json['precio']);
+    final String idPropiedad =
+        json['id']?.toString() ?? json['ref']?.toString() ?? '';
+
+    final String locationName =
+        json['localidad'] ??
+        json['ubicacion'] ??
+        json['ciudad'] ??
+        json['municipio'] ??
+        '';
+
+    final DateTime dateValue = _parseToDateTime(json['fecha_creacion']);
+
+    final String imagePathWithPrefix = json['url_imagen'] ?? '';
+    String imageUrl = '';
+
+    if (imagePathWithPrefix.isNotEmpty) {
+      final imagePath = imagePathWithPrefix.startsWith('2.')
+          ? imagePathWithPrefix.substring(2)
+          : imagePathWithPrefix;
+      imageUrl = _makeAbsoluteUrl(imagePath);
     }
 
-    final bool hasPoolValue = (json['caracteristicas'] as List?)?.any(
-      (f) => f.toString().toLowerCase().contains('piscina')
-    ) ?? false;
+    final bool hasPoolValue =
+        (json['caracteristicas'] as List<dynamic>?)?.any(
+          (f) => f.toString().toLowerCase().contains('piscina'),
+        ) ??
+        false;
 
     return PropertySummary(
-      id: json['id']?.toString() ?? '',
-      imageUrl: thumbUrl,
+      id: idPropiedad,
+      imageUrl: imageUrl,
       title: json['titulo'] ?? 'Propiedad Sin Título',
       price: priceValue,
       bedrooms: bedroomsValue,
       bathrooms: bathroomsValue,
       superficie: superficieValue,
-      location: json['ubicacion'] ?? 'Sevilla',
+      location: locationName,
       type: json['tipo'] ?? 'Desconocido',
       hasPool: hasPoolValue,
       features: List<String>.from(json['caracteristicas'] ?? []),
-      details: '$bedroomsValue habs - $bathroomsValue baños - ${superficieValue.toInt()} m2',
-      creationDate: _parseToDateTime(json['fecha_creacion']),
+      details:
+          '$bedroomsValue habs - $bathroomsValue baños - ${superficieValue.toInt()} m2',
+      creationDate: dateValue,
     );
   }
 
-  // ✅ AQUÍ ES DONDE IBA EL MÉTODO QUE FALTABA
   factory PropertySummary.fromDetailedProperty(Property detailedProperty) {
-    final double priceValue = _parseToDouble(detailedProperty.price);
-    final int bedroomsValue = _parseToInt(detailedProperty.beds);
-    final int bathroomsValue = _parseToInt(detailedProperty.baths);
-    final double superficieValue = _parseToDouble(detailedProperty.area);
+    int _safeParseInt(String s) {
+      final clean = s.replaceAll(',', '.').replaceAll(RegExp(r'[^0-9\.]'), '');
+      return double.tryParse(clean)?.toInt() ?? 0;
+    }
+
+    double _safeParseDouble(String s) {
+      final cleanString = s.replaceAll(RegExp(r'[^\d\.]'), '');
+      return double.tryParse(cleanString) ?? 0.0;
+    }
+
+    final bedroomsValue = _safeParseInt(detailedProperty.beds);
+    final bathroomsValue = _safeParseInt(detailedProperty.baths);
+    final superficieValue = _safeParseDouble(detailedProperty.area);
+
+    final hasPool = detailedProperty.features.any(
+      (f) => f.toLowerCase().contains('piscina'),
+    );
+
+    String imageUrl = 'assets/default.png';
+    if (detailedProperty.images.isNotEmpty) {
+      imageUrl = detailedProperty.images.first;
+    }
+
+    String detectType(String title, List<String> features) {
+      final lowerTitle = title.toLowerCase();
+      if (lowerTitle.contains('piso') || lowerTitle.contains('apartamento'))
+        return 'Piso';
+      if (lowerTitle.contains('chalet') || lowerTitle.contains('casa'))
+        return 'Chalet';
+      if (lowerTitle.contains('garaje') || lowerTitle.contains('parking'))
+        return 'Garaje';
+      if (lowerTitle.contains('oficina') || lowerTitle.contains('local'))
+        return 'Oficina';
+      return 'Desconocido';
+    }
 
     return PropertySummary(
       id: detailedProperty.ref,
-      imageUrl: detailedProperty.images.isNotEmpty 
-          ? detailedProperty.images.first 
-          : 'https://via.placeholder.com/400',
+      imageUrl: imageUrl,
       title: detailedProperty.title,
-      price: priceValue,
+      price: _safeParseInt(detailedProperty.price),
       bedrooms: bedroomsValue,
       bathrooms: bathroomsValue,
       superficie: superficieValue,
-      location: 'Sevilla',
-      type: 'Propiedad',
-      hasPool: detailedProperty.features.any((f) => f.toLowerCase().contains('piscina')),
+      location: '',
+      type: detectType(detailedProperty.title, detailedProperty.features),
+      hasPool: hasPool,
       features: detailedProperty.features,
-      details: '$bedroomsValue habs - $bathroomsValue baños - ${superficieValue.toInt()} m2',
+      details:
+          '$bedroomsValue habs - $bathroomsValue baños - ${superficieValue.toInt()} m2',
       creationDate: DateTime.now(),
     );
   }
-}
-
-extension PropertySummaryFormatters on PropertySummary {
-  String get formattedPrice => _formatCurrency(price);
 }
